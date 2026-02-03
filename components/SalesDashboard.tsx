@@ -104,6 +104,43 @@ export const SalesDashboard: React.FC<SalesDashboardProps> = ({
   currency
 }) => {
 
+  // DEBUG: Log para verificar se dados estão a chegar
+  console.log('[SalesDashboard] Dados recebidos:', {
+    salesCount: sales?.length || 0,
+    usersCount: users?.length || 0,
+    productsCount: products?.length || 0,
+    currency
+  });
+
+  // ============================================
+  // ESTADO VAZIO - Se não houver vendas
+  // ============================================
+  if (!sales || sales.length === 0) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-12">
+        <div className="w-24 h-24 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mb-6">
+          <TrendingUp className="w-12 h-12 text-gray-400" />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          Sem Dados de Vendas
+        </h3>
+        <p className="text-gray-500 dark:text-gray-400 text-center max-w-md mb-6">
+          Ainda não existem vendas registadas no sistema. Os gráficos e métricas aparecerão aqui assim que forem realizadas vendas.
+        </p>
+        <div className="flex gap-4">
+          <div className="text-center px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{products?.length || 0}</p>
+            <p className="text-xs text-gray-500">Produtos</p>
+          </div>
+          <div className="text-center px-4 py-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{users?.length || 0}</p>
+            <p className="text-xs text-gray-500">Utilizadores</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ============================================
   // CÁLCULOS E MÉTRICAS (MEMOIZADOS)
   // ============================================
@@ -627,10 +664,10 @@ export const SalesDashboard: React.FC<SalesDashboardProps> = ({
                       <td className="px-4 py-3 text-right">
                         {/* Badge de rotação baseado na velocidade */}
                         <span className={`px-2 py-1 text-xs rounded-full ${item.avgDays < 2
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                            : item.avgDays < 7
-                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                              : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                          : item.avgDays < 7
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                            : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                           }`}>
                           {item.avgDays < 2 ? 'Alta' : item.avgDays < 7 ? 'Média' : 'Baixa'}
                         </span>
