@@ -9,10 +9,13 @@ interface StatsChartProps {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
 export const StatsChart: React.FC<StatsChartProps> = ({ products }) => {
+  // Proteção contra undefined
+  const safeProducts = products || [];
+
   const data = useMemo(() => {
     const categoryCount: Record<string, number> = {};
-    
-    products.forEach(p => {
+
+    safeProducts.forEach(p => {
       if (!categoryCount[p.category]) {
         categoryCount[p.category] = 0;
       }
@@ -23,7 +26,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({ products }) => {
       name,
       Quantidade: value
     })).sort((a, b) => b.Quantidade - a.Quantidade);
-  }, [products]);
+  }, [safeProducts]);
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -39,7 +42,7 @@ export const StatsChart: React.FC<StatsChartProps> = ({ products }) => {
         <CartesianGrid strokeDasharray="3 3" vertical={false} />
         <XAxis dataKey="name" axisLine={false} tickLine={false} />
         <YAxis axisLine={false} tickLine={false} />
-        <Tooltip 
+        <Tooltip
           cursor={{ fill: 'transparent' }}
           contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
         />

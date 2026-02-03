@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell,
   LineChart, Line, PieChart, Pie
 } from 'recharts';
@@ -12,45 +12,57 @@ interface DashboardChartsProps {
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) => {
-  
+
+  // Proteção contra undefined
+  const safeProducts = products || [];
+
+  // Verificar se há produtos
+  if (safeProducts.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 p-12 rounded-xl text-center border border-gray-100 dark:border-gray-700">
+        <p className="text-gray-500 dark:text-gray-400">Sem produtos para exibir gráficos.</p>
+      </div>
+    );
+  }
+
   // Data for Bar Chart (Stock by Category)
   const categoryData = useMemo(() => {
     const categoryCount: Record<string, number> = {};
-    products.forEach(p => {
+    safeProducts.forEach(p => {
       categoryCount[p.category] = (categoryCount[p.category] || 0) + p.quantity;
     });
     return Object.entries(categoryCount)
       .map(([name, value]) => ({ name, Quantidade: value }))
       .sort((a, b) => b.Quantidade - a.Quantidade);
-  }, [products]);
+  }, [safeProducts]);
 
   // Data for Pie Chart (Value by Category)
   const valueData = useMemo(() => {
     const categoryValue: Record<string, number> = {};
-    products.forEach(p => {
+    safeProducts.forEach(p => {
       categoryValue[p.category] = (categoryValue[p.category] || 0) + (p.price * p.quantity);
     });
     return Object.entries(categoryValue)
       .map(([name, value]) => ({ name, value }));
-  }, [products]);
+  }, [safeProducts]);
 
   // NEW: Top 5 Products by Value
   const topProductsData = useMemo(() => {
-    return [...products]
+    return [...safeProducts]
       .sort((a, b) => (b.price * b.quantity) - (a.price * a.quantity))
       .slice(0, 5)
       .map(p => ({
         name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
         value: p.price * p.quantity
       }));
-  }, [products]);
+  }, [safeProducts]);
 
   // NEW: Stock Status Distribution
   const statusData = useMemo(() => {
     let low = 0;
     let normal = 0;
     let out = 0;
-    products.forEach(p => {
+    safeProducts.forEach(p => {
       if (p.quantity === 0) out++;
       else if (p.quantity <= p.minStock) low++;
       else normal++;
@@ -60,7 +72,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
       { name: 'Baixo', value: low, color: '#f59e0b' },
       { name: 'Esgotado', value: out, color: '#ef4444' }
     ].filter(i => i.value > 0);
-  }, [products]);
+  }, [safeProducts]);
 
   // Mock Trend Data
   const trendData = [
@@ -69,13 +81,13 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
     { name: 'Mar', MediaPreco: 410 },
     { name: 'Abr', MediaPreco: 450 },
     { name: 'Mai', MediaPreco: 460 },
-    { name: 'Jun', MediaPreco: products.length > 0 ? products.reduce((acc, p) => acc + p.price, 0) / products.length : 0 },
+    { name: 'Jun', MediaPreco: safeProducts.length > 0 ? safeProducts.reduce((acc, p) => acc + p.price, 0) / safeProducts.length : 0 },
   ];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Quantidade por Categoria */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Stock por Categoria</h3>
@@ -85,9 +97,9 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.3} />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
                 <YAxis axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
-                <Tooltip 
-                  cursor={{ fill: '#f3f4f6', opacity: 0.1 }} 
-                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} 
+                <Tooltip
+                  cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                 />
                 <Bar dataKey="Quantidade" radius={[4, 4, 0, 0]}>
                   {categoryData.map((entry, index) => (
@@ -114,7 +126,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
                   fill="#8884d8"
                   paddingAngle={5}
                   dataKey="value"
-                  label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
                   {valueData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -139,7 +151,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
-                  label={({name, value}) => `${name}: ${value}`}
+                  label={({ name, value }) => `${name}: ${value}`}
                 >
                   {statusData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -152,8 +164,8 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
           </div>
         </div>
 
-         {/* Top 5 Produtos por Valor */}
-         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+        {/* Top 5 Produtos por Valor */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top 5 Produtos (Valor Total)</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -161,10 +173,10 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#374151" opacity={0.3} />
                 <XAxis type="number" axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
                 <YAxis dataKey="name" type="category" width={100} axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
-                <Tooltip 
-                   cursor={{ fill: '#f3f4f6', opacity: 0.1 }} 
-                   contentStyle={{ borderRadius: '8px', border: 'none' }} 
-                   formatter={(value: number) => `${value.toLocaleString()}€`}
+                <Tooltip
+                  cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
+                  contentStyle={{ borderRadius: '8px', border: 'none' }}
+                  formatter={(value: number) => `${value.toLocaleString()}€`}
                 />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#8b5cf6" barSize={20} />
               </BarChart>

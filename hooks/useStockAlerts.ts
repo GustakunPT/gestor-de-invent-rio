@@ -17,11 +17,14 @@ export interface StockAlert {
  * Hook para gerar alertas de stock automaticamente
  */
 export const useStockAlerts = (products: Product[]): StockAlert[] => {
+    // Proteção contra undefined
+    const safeProducts = products || [];
+
     return useMemo(() => {
         const alerts: StockAlert[] = [];
         const now = new Date();
 
-        products.forEach(product => {
+        safeProducts.forEach(product => {
             // Ignorar produtos inativos (se o campo existir)
             if ('isActive' in product && !product.isActive) return;
 
@@ -92,5 +95,5 @@ export const useStockAlerts = (products: Product[]): StockAlert[] => {
         // Ordenar por severidade
         const severityOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
         return alerts.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
-    }, [products]);
+    }, [safeProducts]);
 };
