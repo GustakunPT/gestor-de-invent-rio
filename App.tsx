@@ -133,7 +133,7 @@ const App: React.FC = () => {
     initAuth();
 
     // Listener para eventos de Auth (login noutra aba, logout, token expire)
-    const { data: { subscription } } = authService.onAuthStateChange((user) => {
+    const subscription = authService.onAuthStateChange((user) => {
       setCurrentUser(user);
       if (user) {
         if (!isDataLoaded) loadData(); // Carrega dados ao entrar
