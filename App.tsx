@@ -299,10 +299,19 @@ const App: React.FC = () => {
   const handleNewSale = async (newSale: Sale) => {
     setIsLoading(true);
     const saleWithUser = { ...newSale, userId: currentUser?.id || '' };
-    await api.saveSale(saleWithUser);
+    const result = await api.saveSale(saleWithUser);
+
+    if (!result.success) {
+      toast.error('Erro ao guardar venda', 'Não foi possível salvar a venda na base de dados.');
+      setIsLoading(false);
+      return;
+    }
+
     for (const item of newSale.items) {
       await addHistory('VENDA', item.productId, item.productName, `Venda #${newSale.id} (-${item.quantity})`);
     }
+
+    toast.success('Venda registada', `Venda #${newSale.id} finalizada com sucesso.`);
     await loadData();
     setIsLoading(false);
   };
