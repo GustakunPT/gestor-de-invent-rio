@@ -1,21 +1,50 @@
+// ============================================
+// COMPONENTE: GESTOR DE CLIENTES (CRM)
+// ============================================
+// Este componente permite gerir a base de dados de clientes.
+// Funcionalidades:
+// 1. Listagem de clientes com pesquisa.
+// 2. Adicionar/Editar clientes (Modal/Form expansível).
+// 3. Validação de NIF e Email.
+// 4. Gestão de dados avançados (Crédito, Pontos, Descontos).
+// 5. Controlo de permissões (apenas ADMIN pode apagar).
+// ============================================
+
 import React, { useState } from 'react';
 import { Users, Plus, Trash2, Mail, Phone, MapPin, Edit2, Search, Building, User, Star, CreditCard } from 'lucide-react';
 import { Customer, CustomerType } from '../types';
 import { isValidNIF, isValidEmail, generateId } from '../validators';
 
+// Definição das props recebidas pelo componente
 interface CustomerManagerProps {
-  customers: Customer[];
+  customers: Customer[];        // Lista de clientes
   onAddCustomer: (customer: Customer) => void;
   onEditCustomer: (customer: Customer) => void;
   onDeleteCustomer: (id: string) => void;
-  userRole: string; // Nova prop obrigatória
+  userRole: string;            // Nível de acesso do utilizador atual (ADMIN/MANAGER/USER)
 }
 
-export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onAddCustomer, onEditCustomer, onDeleteCustomer, userRole }) => {
+export const CustomerManager: React.FC<CustomerManagerProps> = ({
+  customers,
+  onAddCustomer,
+  onEditCustomer,
+  onDeleteCustomer,
+  userRole
+}) => {
+  // ============================================
+  // GESTÃO DE ESTADO (STATE MANAGEMENT)
+  // ============================================
+
+  // Controla se o formulário de edição/criação está visível
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // Se estivermos a editar um cliente existente, guarda o ID dele (null = criação)
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Termo de pesquisa para filtrar a lista
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Estado do formulário - objeto temporário dos dados do cliente
   const [formData, setFormData] = useState<Omit<Customer, 'id'>>({
     name: '',
     nif: '',
@@ -23,7 +52,7 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
     phone: '',
     address: '',
     postalCode: '',
-    // Novos campos
+    // Novos campos de CRM
     type: 'INDIVIDUAL',
     creditLimit: 0,
     currentDebt: 0,
@@ -33,8 +62,17 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
     isActive: true
   });
 
+  // ============================================
+  // FUNÇÕES AUXILIARES E HANDLERS
+  // ============================================
+
+  /**
+   * Abre o formulário para criar ou editar cliente.
+   * Se customer for passado, preenche os campos para edição.
+   */
   const handleOpenForm = (customer?: Customer) => {
     if (customer) {
+      // Modo Edição: Preencher dados existentes
       setEditingId(customer.id);
       setFormData({
         name: customer.name,
@@ -52,6 +90,7 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
         isActive: customer.isActive !== false
       });
     } else {
+      // Modo Criação: Limpar campos
       setEditingId(null);
       setFormData({
         name: '', nif: '', email: '', phone: '', address: '', postalCode: '',
@@ -59,59 +98,79 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
         discountPercentage: 0, notes: '', isActive: true
       });
     }
+    // Mostrar formulário
     setIsFormOpen(true);
   };
 
+  /**
+   * Processa o envio do formulário (Salvar/Atualizar)
+   * Inclui validações de NIF e Email.
+   */
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevenir reload da página
 
-    // Validar NIF se preenchido
+    // Passo 1: Validação de NIF (se preenchido)
     if (formData.nif) {
       const nifValidation = isValidNIF(formData.nif);
       if (!nifValidation.isValid) {
-        alert(nifValidation.message || 'NIF inválido');
+        alert(nifValidation.message || 'NIF inválido. Verifique o número.');
         return;
       }
     }
 
-    // Validar email se preenchido
+    // Passo 2: Validação de Email (se preenchido)
     if (formData.email) {
       const emailValidation = isValidEmail(formData.email);
       if (!emailValidation.isValid) {
-        alert(emailValidation.message || 'Email inválido');
+        alert(emailValidation.message || 'Email inválido. Verifique o formato.');
         return;
       }
     }
 
+    // Passo 3: Persistir dados
     if (editingId) {
+      // Atualizar cliente existente
       onEditCustomer({
-        id: editingId,
-        ...formData
+        id: editingId, // Mantém o ID original
+        ...formData    // Campos atualizados
       });
     } else {
+      // Criar novo cliente
       onAddCustomer({
-        id: generateId('CUST'),
+        id: generateId('CUST'), // Gera novo ID único (Ex: CUST-123456)
         ...formData,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString() // Data de registo
       });
     }
+
+    // Passo 4: Limpeza final
     setFormData({
       name: '', nif: '', email: '', phone: '', address: '', postalCode: '',
       type: 'INDIVIDUAL', creditLimit: 0, currentDebt: 0, loyaltyPoints: 0,
       discountPercentage: 0, notes: '', isActive: true
     });
     setEditingId(null);
-    setIsFormOpen(false);
+    setIsFormOpen(false); // Fechar formulário
   };
 
+  /**
+   * Filtra a lista de clientes com base no termo de pesquisa
+   * (Nome, NIF ou Email)
+   */
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     c.nif.includes(searchTerm) ||
     c.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // ============================================
+  // RENDERIZAÇÃO (JSX)
+  // ============================================
+
   return (
     <div className="space-y-6">
+
+      {/* Barra de Topo: Título, Pesquisa e Botão Novo */}
       <div className="flex flex-col sm:flex-row justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 gap-4">
         <div className="flex items-center">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
@@ -121,18 +180,21 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
         </div>
 
         <div className="flex w-full sm:w-auto gap-3">
+          {/* Caixa de Pesquisa */}
           <div className="relative flex-1 sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Pesquisar cliente..."
+              placeholder="Pesquisar por nome, NIF ou email..."
               className="w-full pl-9 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {/* Botão Novo Cliente */}
           <button
-            onClick={() => handleOpenForm()}
+            onClick={() => handleOpenForm()} // Chama sem argumentos = modo criação
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
           >
             <Plus className="w-5 h-5 mr-2" />
@@ -141,10 +203,15 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
         </div>
       </div>
 
+      {/* Formulário Expansível (Visível apenas se isFormOpen === true) */}
       {isFormOpen && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">{editingId ? 'Editar Cliente' : 'Adicionar Cliente'}</h3>
+          <h3 className="text-md font-medium text-gray-900 dark:text-white mb-4">
+            {editingId ? 'Editar Cliente' : 'Adicionar Cliente'}
+          </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Secção: Dados Pessoais / Identificação */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo</label>
               <input
@@ -155,6 +222,8 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
+
+            {/* Secção: Contactos e NIF */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIF</label>
               <input
@@ -162,6 +231,7 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2"
                 value={formData.nif}
                 onChange={e => setFormData({ ...formData, nif: e.target.value })}
+                placeholder="Ex: 123456789"
               />
             </div>
             <div>
@@ -189,6 +259,7 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2"
                 value={formData.postalCode}
                 onChange={e => setFormData({ ...formData, postalCode: e.target.value })}
+                placeholder="0000-000"
               />
             </div>
             <div className="md:col-span-2">
@@ -201,10 +272,12 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
               />
             </div>
 
-            {/* Novos Campos */}
+            {/* Secção: Detalhes Comerciais (CRM) */}
             <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-600 pt-4 mt-2">
               <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Informações Adicionais</h4>
             </div>
+
+            {/* Tipo: Particular vs Empresa */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Cliente</label>
               <select
@@ -216,6 +289,8 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
                 <option value="COMPANY">Empresa</option>
               </select>
             </div>
+
+            {/* Campos Financeiros */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Limite de Crédito (€)</label>
               <input
@@ -248,6 +323,8 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
                 onChange={e => setFormData({ ...formData, discountPercentage: parseFloat(e.target.value) || 0 })}
               />
             </div>
+
+            {/* Notas Internas */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notas</label>
               <textarea
@@ -255,19 +332,21 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
                 className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2"
                 value={formData.notes || ''}
                 onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Observações sobre o cliente..."
+                placeholder="Observações internas sobre o cliente..."
               />
             </div>
+
+            {/* Ações do Formulário */}
             <div className="md:col-span-2 flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={() => setIsFormOpen(false)}
+                onClick={() => setIsFormOpen(false)} // Fecha sem salvar
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"
               >
                 Cancelar
               </button>
               <button
-                type="submit"
+                type="submit" // Trigger handleSubmit
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
                 {editingId ? 'Atualizar' : 'Salvar'}
@@ -277,9 +356,12 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
         </div>
       )}
 
+      {/* Grid de Cartões de Clientes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCustomers.map(customer => (
           <div key={customer.id} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 relative group">
+
+            {/* Ações Rápidas (Editar/Apagar) - Aparecem no Hover */}
             <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
                 onClick={() => handleOpenForm(customer)}
@@ -300,6 +382,7 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
               )}
             </div>
 
+            {/* Informação Principal do Cartão */}
             <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-1">{customer.name}</h3>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">NIF: {customer.nif || 'N/A'}</p>
 
@@ -321,7 +404,7 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
               </div>
             </div>
 
-            {/* Métricas do Cliente */}
+            {/* Métricas do Cliente (Rodapé do Cartão) */}
             <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 grid grid-cols-3 gap-2 text-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Crédito</p>
@@ -345,6 +428,8 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
             </div>
           </div>
         ))}
+
+        {/* Estado Vazio (Sem resultados) */}
         {filteredCustomers.length === 0 && (
           <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
             Nenhum cliente encontrado.

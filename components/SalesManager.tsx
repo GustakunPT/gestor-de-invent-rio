@@ -1,9 +1,15 @@
+// ============================================
+// COMPONENTE: GESTOR DE VENDAS (POS)
+// ============================================
+
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard } from 'lucide-react';
+import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard, RotateCcw, ScanLine } from 'lucide-react';
 import { Product, Sale, SaleItem, AppSettings, Customer, PaymentMethod, Promotion } from '../types';
 import { InvoiceModal } from './InvoiceModal';
 import { isValidNIF, isValidEmail } from '../validators';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner'; // Novo Hook
 
+// Definição das props recebidas pelo componente
 interface SalesManagerProps {
   products: Product[];
   sales: Sale[];
@@ -13,22 +19,33 @@ interface SalesManagerProps {
   settings: AppSettings;
 }
 
-export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, customers, promotions = [], onNewSale, settings }) => {
+export const SalesManager: React.FC<SalesManagerProps> = ({
+  products,
+  sales,
+  customers,
+  promotions = [],
+  onNewSale,
+  settings
+}) => {
+  // ============================================
+  // GESTÃO DE ESTADO (STATE MANAGEMENT)
+  // ============================================
+
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
 
-  // New Sale State
+  // --- NOVA VENDA ---
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState<SaleItem[]>([]);
 
-  // Payment State
+  // --- PAGAMENTO ---
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [discountAmount, setDiscountAmount] = useState(0);
   const [discountReason, setDiscountReason] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
 
-  // Customer State
+  // --- CLIENTE ---
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerNif, setCustomerNif] = useState('');
@@ -37,12 +54,90 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerPostalCode, setCustomerPostalCode] = useState('');
 
-  // Invoice State
+  // --- UI AUXILIAR ---
   const [viewInvoice, setViewInvoice] = useState<Sale | null>(null);
+
+  // --- DEVOLUÇÕES (RMA) ---
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [saleToReturn, setSaleToReturn] = useState<Sale | null>(null);
+  const [returnQuantities, setReturnQuantities] = useState<Record<string, number>>({});
 
   const selectedProduct = products.find(p => p.id === selectedProductId);
 
-  // Auto-fill customer data when selected from dropdown
+  // ============================================
+  // BARCODE SCANNER (INTEGRAÇÃO)
+  // ============================================
+
+  // Função auxiliar para adicionar produto (usada pelo botão e pelo scanner)
+  const addProductToCart = (product: Product, qty: number = 1) => {
+    // 1. Verificar stock considerando o que já está no carrinho
+    const currentInCart = cart.find(item => item.productId === product.id)?.quantity || 0;
+
+    if (product.quantity < currentInCart + qty) {
+      alert(`Stock insuficiente para ${product.name}! Stock atual: ${product.quantity}`);
+      return;
+    }
+
+    const existingItem = cart.find(item => item.productId === product.id);
+
+    if (existingItem) {
+      setCart(prev => prev.map(item =>
+        item.productId === product.id
+          ? {
+            ...item,
+            quantity: item.quantity + qty,
+            total: (item.quantity + qty) * item.unitPrice
+          }
+          : item
+      ));
+    } else {
+      setCart(prev => [...prev, {
+        productId: product.id,
+        productName: product.name,
+        quantity: qty,
+        unitPrice: product.price,
+        costPrice: product.costPrice,
+        total: qty * product.price
+      }]);
+    }
+
+    // Feedback sonoro (opcional, requer setup de Audio) ou visual
+    // const audio = new Audio('/beep.mp3'); audio.play().catch(() => {});
+  };
+
+  // Hook que ouve eventos globais de teclado (leitor USB)
+  useBarcodeScanner((code) => {
+    // Procura por SKU ou Barcode (EAN)
+    // Usamos toLowerCase para garantir robustez
+    const product = products.find(p =>
+      (p.barcode && p.barcode.toLowerCase() === code.toLowerCase()) ||
+      (p.sku && p.sku.toLowerCase() === code.toLowerCase())
+    );
+
+    if (product) {
+      addProductToCart(product, 1);
+      // Feedback visual (Toast) seria bom aqui, mas por agora o item aparece no carrinho
+    } else {
+      // Se não encontrar produto, ignora silenciosamente ou avisa?
+      // Num POS rápido, talvez um som de erro.
+      console.warn(`Código ${code} não encontrado.`);
+    }
+  });
+
+  // Wrapper para o botão "Adicionar" manual
+  const handleManualAdd = () => {
+    if (selectedProduct) {
+      addProductToCart(selectedProduct, quantity);
+      setQuantity(1);
+      setSelectedProductId('');
+    }
+  };
+
+  // ============================================
+  // LÓGICA DE NEGÓCIO
+  // ============================================
+
+  // Auto-fill cliente
   useEffect(() => {
     if (selectedCustomerId) {
       const customer = customers.find(c => c.id === selectedCustomerId);
@@ -54,10 +149,6 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
         setCustomerAddress(customer.address);
         setCustomerPostalCode(customer.postalCode);
       }
-    } else {
-      // Only clear if user explicitly clears selection, but maybe they want to type manually?
-      // Let's decide: if they clear selection, we clear fields to avoid confusion.
-      // But we won't clear if they are just typing.
     }
   }, [selectedCustomerId, customers]);
 
@@ -71,70 +162,9 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
     setCustomerPostalCode('');
   };
 
-  // NIF Validation Logic - usando validador centralizado
   const isValidNif = (nif: string) => {
-    if (!nif) return true; // Empty is valid
+    if (!nif) return true;
     return isValidNIF(nif).isValid;
-  };
-
-  // Aplicar código promocional
-  const handleApplyCoupon = () => {
-    if (!couponCode.trim()) return;
-    const promo = promotions.find(p =>
-      p.couponCode === couponCode.toUpperCase() &&
-      p.isActive &&
-      new Date() >= new Date(p.startDate) &&
-      new Date() <= new Date(p.endDate)
-    );
-    if (promo) {
-      setAppliedPromotion(promo);
-      if (promo.type === 'PERCENTAGE') {
-        setDiscountAmount(cartTotal * (promo.value / 100));
-      } else if (promo.type === 'FIXED') {
-        setDiscountAmount(promo.value);
-      }
-      setDiscountReason(`Promoção: ${promo.name}`);
-    } else {
-      alert('Código promocional inválido ou expirado.');
-    }
-  };
-
-  // Remover promoção
-  const handleRemoveCoupon = () => {
-    setAppliedPromotion(null);
-    setDiscountAmount(0);
-    setDiscountReason('');
-    setCouponCode('');
-  };
-
-  const addToCart = () => {
-    if (!selectedProduct) return;
-
-    // Check stock
-    const currentInCart = cart.find(item => item.productId === selectedProduct.id)?.quantity || 0;
-    if (selectedProduct.quantity < currentInCart + quantity) {
-      alert('Stock insuficiente!');
-      return;
-    }
-
-    const existingItem = cart.find(item => item.productId === selectedProductId);
-    if (existingItem) {
-      setCart(cart.map(item =>
-        item.productId === selectedProductId
-          ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.unitPrice }
-          : item
-      ));
-    } else {
-      setCart([...cart, {
-        productId: selectedProduct.id,
-        productName: selectedProduct.name,
-        quantity: quantity,
-        unitPrice: selectedProduct.price,
-        total: quantity * selectedProduct.price
-      }]);
-    }
-    setQuantity(1);
-    setSelectedProductId('');
   };
 
   const removeFromCart = (productId: string) => {
@@ -142,39 +172,26 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
   };
 
   const handleFinalizeSale = () => {
-    if (cart.length === 0) {
-      alert('Adicione itens ao carrinho antes de finalizar.');
-      return;
-    }
+    if (cart.length === 0) return;
 
     let finalName = customerName.trim();
     let finalNif = customerNif.trim();
 
-    // Validate NIF before proceeding
     if (finalNif && !isValidNif(finalNif)) {
-      alert('O NIF inserido é inválido. Deve conter 9 dígitos numéricos.');
+      alert('NIF inválido.');
       return;
     }
 
-    // Check if customer data is empty
     if (!finalName) {
-      const confirmDefault = window.confirm(
-        'Os dados do cliente (Nome) não foram preenchidos.\n\nDeseja emitir a fatura como "Consumidor Final"?'
-      );
-
-      if (confirmDefault) {
-        finalName = 'Consumidor Final';
-        if (!finalNif) finalNif = '000000000';
-      } else {
-        return; // User cancelled to fill in data
-      }
+      if (!window.confirm('Emitir como "Consumidor Final"?')) return;
+      finalName = 'Consumidor Final';
+      if (!finalNif) finalNif = '999999990';
     }
 
     const subtotal = cart.reduce((acc, item) => acc + item.total, 0);
-    const finalDiscount = Math.min(discountAmount, subtotal); // Não pode ser maior que subtotal
+    const finalDiscount = Math.min(discountAmount, subtotal);
     const totalAmount = subtotal - finalDiscount;
 
-    // Calcular lucro estimado (preço venda - custo)
     const profit = cart.reduce((acc, item) => {
       const product = products.find(p => p.id === item.productId);
       const costPrice = product?.costPrice || 0;
@@ -199,314 +216,237 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
       discountAmount: finalDiscount,
       discountReason,
       profit,
-      userId: '' // Populated in App.tsx
+      userId: '' // Preenchido no App.tsx
     };
 
     onNewSale(newSale);
 
-    // Reset Form
+    // Reset
     setCart([]);
     handleClearCustomer();
     setPaymentMethod('CASH');
     setDiscountAmount(0);
-    setDiscountReason('');
-    handleRemoveCoupon();
+    setViewInvoice(newSale);
+  };
 
-    setViewInvoice(newSale); // Show invoice immediately
+  // ============================================
+  // DEVOLUÇÕES (RMA)
+  // ============================================
+
+  const handleOpenReturn = (sale: Sale) => {
+    setSaleToReturn(sale);
+    // Inicializa quantidades com 0
+    const initialQts: Record<string, number> = {};
+    sale.items.forEach(item => {
+      initialQts[item.productId] = 0;
+    });
+    setReturnQuantities(initialQts);
+    setReturnModalOpen(true);
+  };
+
+  const handleProcessReturn = () => {
+    if (!saleToReturn) return;
+
+    // Filtrar itens com quantidade > 0 para devolver
+    const itemsToReturn = saleToReturn.items.filter(item => (returnQuantities[item.productId] || 0) > 0);
+
+    if (itemsToReturn.length === 0) {
+      alert("Selecione pelo menos um item para devolver.");
+      return;
+    }
+
+    const returnItems: SaleItem[] = itemsToReturn.map(item => ({
+      ...item,
+      quantity: - (returnQuantities[item.productId] || 0), // Quantidade negativa aumenta stock
+      total: - ((returnQuantities[item.productId] || 0) * item.unitPrice)
+    }));
+
+    const totalRefund = returnItems.reduce((acc, item) => acc + item.total, 0); // Será negativo
+
+    const returnSale: Sale = {
+      ...saleToReturn,
+      id: `RET-${Date.now()}`,
+      date: new Date().toISOString(),
+      status: 'SHIPPED', // Usar status existente, idealmente seria 'RETURNED'
+      items: returnItems,
+      totalAmount: totalRefund, // Valor negativo afeta as contas corretamente? Sim.
+      subtotal: totalRefund,
+      notes: `Devolução referente à fatura #${saleToReturn.id}`,
+      profit: 0 // Devolução anula lucro (simplificação)
+    };
+
+    onNewSale(returnSale);
+    setReturnModalOpen(false);
+    setSaleToReturn(null);
+    alert("Devolução processada e stock atualizado.");
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + item.total, 0);
-  const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   return (
     <div className="space-y-6">
       {/* Tabs */}
       <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl px-4 pt-4">
-        <button
-          onClick={() => setActiveTab('new')}
-          className={`pb-3 md:pb-4 px-2 md:px-4 font-medium text-xs md:text-sm transition-colors relative ${activeTab === 'new' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-        >
-          Nova Venda
-          {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`pb-3 md:pb-4 px-2 md:px-4 font-medium text-xs md:text-sm transition-colors relative ${activeTab === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-            }`}
-        >
-          Histórico de Vendas
-          {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
-        </button>
+        <button onClick={() => setActiveTab('new')} className={`pb-3 px-4 ${activeTab === 'new' ? 'text-blue-600 border-b-2 border-blue-600 font-medium' : 'text-gray-500'}`}>Nova Venda</button>
+        <button onClick={() => setActiveTab('history')} className={`pb-3 px-4 ${activeTab === 'history' ? 'text-blue-600 border-b-2 border-blue-600 font-medium' : 'text-gray-500'}`}>Histórico</button>
       </div>
 
       {activeTab === 'new' ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Product Selection & Customer Info */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Cliente */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-                  <User className="w-5 h-5 mr-2 text-gray-500" />
-                  Dados do Cliente
-                </h3>
-                {selectedCustomerId && (
-                  <button
-                    onClick={handleClearCustomer}
-                    className="text-xs text-red-500 hover:text-red-700 flex items-center"
-                  >
-                    <X className="w-3 h-3 mr-1" /> Limpar seleção
-                  </button>
-                )}
+              <div className="flex justify-between mb-4">
+                <h3 className="font-medium flex items-center text-gray-900 dark:text-white"><User className="w-5 h-5 mr-2" /> Cliente</h3>
+                {selectedCustomerId && <button onClick={handleClearCustomer} className="text-red-500 text-xs flex items-center"><X className="w-3 h-3 mr-1" /> Limpar</button>}
               </div>
 
-              {/* Customer Selector */}
-              <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
-                <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
-                  Pesquisar Cliente Existente
-                </label>
+              <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800 flex items-center">
+                <Search className="w-4 h-4 text-blue-500 mr-2" />
                 <select
-                  className="w-full border border-blue-300 dark:border-blue-700 dark:bg-gray-800 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full bg-transparent border-none focus:ring-0 text-sm"
                   value={selectedCustomerId}
                   onChange={(e) => setSelectedCustomerId(e.target.value)}
                 >
-                  <option value="">-- Selecione ou preencha manualmente --</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.nif ? `(NIF: ${c.nif})` : ''}
-                    </option>
-                  ))}
+                  <option value="">Pesquisar cliente existente...</option>
+                  {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.nif})</option>)}
                 </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Cliente</label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-300 dark:placeholder-gray-500"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Deixe vazio para Consumidor Final"
-                    disabled={!!selectedCustomerId} // Disable editing if selected from DB to ensure consistency, or allow? Let's disable for now for "Source of Truth"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">NIF</label>
-                  <input
-                    type="text"
-                    maxLength={9}
-                    className={`w-full border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-300 dark:placeholder-gray-500 dark:bg-gray-700 dark:text-white
-                      ${customerNif && !isValidNif(customerNif) ? 'border-red-500 dark:border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 dark:border-gray-600'}`}
-                    value={customerNif}
-                    onChange={(e) => setCustomerNif(e.target.value.replace(/\D/g, ''))} // Allow only numbers
-                    placeholder="000000000"
-                    disabled={!!selectedCustomerId}
-                  />
-                  {customerNif && !isValidNif(customerNif) && (
-                    <p className="text-xs text-red-500 mt-1 flex items-center">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      O NIF deve ter 9 dígitos.
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
-                  <input
-                    type="tel"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    disabled={!!selectedCustomerId}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-                  <input
-                    type="email"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    disabled={!!selectedCustomerId}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Morada</label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={customerAddress}
-                    onChange={(e) => setCustomerAddress(e.target.value)}
-                    disabled={!!selectedCustomerId}
-                  />
-                </div>
-                <div className="md:col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Postal</label>
-                  <input
-                    type="text"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-300 dark:placeholder-gray-500"
-                    value={customerPostalCode}
-                    onChange={(e) => setCustomerPostalCode(e.target.value)}
-                    placeholder="0000-000"
-                    disabled={!!selectedCustomerId}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center">
-                    <AlertCircle className="w-3 h-3 mr-1" />
-                    Se o nome não for preenchido, será assumido "Consumidor Final" (NIF: 000000000).
-                  </p>
-                </div>
+                <input placeholder="Nome (Vazio = Consumidor Final)" className="border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={customerName} onChange={e => setCustomerName(e.target.value)} disabled={!!selectedCustomerId} />
+                <input placeholder="NIF" maxLength={9} className="border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={customerNif} onChange={e => setCustomerNif(e.target.value.replace(/\D/g, ''))} disabled={!!selectedCustomerId} />
               </div>
             </div>
 
+            {/* Produtos */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4 flex items-center">
-                <ShoppingCart className="w-5 h-5 mr-2 text-gray-500" />
-                Adicionar Produtos
-              </h3>
-              <div className="flex flex-col md:flex-row gap-4 items-end">
-                <div className="flex-1 w-full">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Produto</label>
-                  <select
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={selectedProductId}
-                    onChange={(e) => setSelectedProductId(e.target.value)}
-                  >
-                    <option value="">Selecione um produto...</option>
+              <div className="flex justify-between mb-4">
+                <h3 className="font-medium flex items-center text-gray-900 dark:text-white">
+                  <ShoppingCart className="w-5 h-5 mr-2" /> Adicionar Produtos
+                </h3>
+                <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                  <ScanLine className="w-3 h-3 mr-1" /> Leitor código barras pronto
+                </div>
+              </div>
+
+              <div className="flex gap-4 items-end">
+                <div className="flex-1">
+                  <label className="text-xs mb-1 block text-gray-500">Produto</label>
+                  <select className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}>
+                    <option value="">Selecione...</option>
                     {products.filter(p => p.quantity > 0).map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} - {p.price}€ (Stock: {p.quantity})
-                      </option>
+                      <option key={p.id} value={p.id}>{p.name} - {p.price}€</option>
                     ))}
                   </select>
                 </div>
-                <div className="w-full md:w-32">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Qtd</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={quantity}
-                    onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                  />
+                <div className="w-24">
+                  <label className="text-xs mb-1 block text-gray-500">Qtd</label>
+                  <input type="number" min="1" className="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600 dark:text-white" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} />
                 </div>
-                <button
-                  onClick={addToCart}
-                  disabled={!selectedProductId}
-                  className="w-full md:w-auto px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <Plus className="w-5 h-5" />
-                </button>
+                <button onClick={handleManualAdd} disabled={!selectedProductId} className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 disabled:opacity-50"><Plus /></button>
               </div>
             </div>
           </div>
 
-          {/* Cart Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Resumo do Pedido</h3>
-
-              <div className="flex-1 overflow-y-auto min-h-[200px] mb-4">
-                {cart.length === 0 ? (
-                  <p className="text-gray-400 dark:text-gray-500 text-center mt-10">O carrinho está vazio.</p>
-                ) : (
-                  <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {cart.map((item, idx) => (
-                      <li key={idx} className="py-3 flex justify-between items-start">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{item.productName}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{item.quantity} x {item.unitPrice}€</p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-medium text-gray-900 dark:text-white">{item.total}€</span>
-                          <button
-                            onClick={() => removeFromCart(item.productId)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-auto">
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-lg font-medium text-gray-900 dark:text-white">Total</span>
-                  <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{cartTotal}€</span>
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border h-full flex flex-col">
+            <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Carrinho</h3>
+            <div className="flex-1 overflow-y-auto min-h-[200px]">
+              {cart.map((item, idx) => (
+                <div key={idx} className="flex justify-between py-2 border-b dark:border-gray-700">
+                  <div>
+                    <div className="font-medium text-gray-900 dark:text-white">{item.productName}</div>
+                    <div className="text-xs text-gray-500">{item.quantity} x {item.unitPrice}€</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold dark:text-white">{item.total.toFixed(2)}€</span>
+                    <button onClick={() => removeFromCart(item.productId)} className="text-red-400"><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 </div>
-                <button
-                  onClick={handleFinalizeSale}
-                  disabled={cart.length === 0 || (customerNif !== '' && !isValidNif(customerNif))}
-                  className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Check className="w-5 h-5" />
-                  Finalizar Venda
-                </button>
-              </div>
+              ))}
+              {cart.length === 0 && <div className="text-center text-gray-400 mt-10">Vazio</div>}
+            </div>
+            <div className="mt-4 pt-4 border-t dark:border-gray-700">
+              <div className="flex justify-between text-xl font-bold mb-4 dark:text-white"><span>Total</span><span>{cartTotal.toFixed(2)}€</span></div>
+              <button onClick={handleFinalizeSale} disabled={cart.length === 0} className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">Finalizar Venda</button>
             </div>
           </div>
         </div>
       ) : (
-        /* History Tab */
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+          <table className="min-w-full divide-y dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
               <tr>
-                <th className="px-3 py-3 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">ID</th>
-                <th className="px-3 py-3 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Cliente</th>
-                <th className="px-3 py-3 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Data</th>
-                <th className="px-3 py-3 sm:px-6 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase hidden sm:table-cell">Itens</th>
-                <th className="px-3 py-3 sm:px-6 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
-                <th className="px-3 py-3 sm:px-6 sm:py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Ações</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y dark:divide-gray-700">
               {sales.map(sale => (
-                <tr key={sale.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-medium text-blue-600 dark:text-blue-400">#{sale.id.slice(-4)}</td>
-                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">
-                    <div className="truncate max-w-[100px] sm:max-w-none">{sale.customerName}</div>
+                <tr key={sale.id} className={sale.totalAmount < 0 ? 'bg-red-50 dark:bg-red-900/10' : ''}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">#{sale.id.slice(-4)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm dark:text-gray-200">{sale.customerName}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(sale.date).toLocaleDateString()}</td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${sale.totalAmount < 0 ? 'text-red-600' : 'dark:text-white'}`}>
+                    {sale.totalAmount.toFixed(2)}€
                   </td>
-                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">{sale.date}</td>
-                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell">{sale.items.length} itens</td>
-                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-sm font-bold text-right text-gray-900 dark:text-white">
-                    {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: settings.currency }).format(sale.totalAmount)}
-                  </td>
-                  <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => setViewInvoice(sale)}
-                      className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center justify-end gap-1 ml-auto"
-                    >
-                      <FileText className="w-4 h-4" />
-                      <span className="hidden sm:inline">Fatura</span>
-                    </button>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex justify-end gap-2">
+                    <button onClick={() => setViewInvoice(sale)} className="text-blue-600 hover:text-blue-900 flex items-center pr-2 border-r"><FileText className="w-4 h-4 mr-1" /> Fatura</button>
+                    {sale.totalAmount > 0 && (
+                      <button onClick={() => handleOpenReturn(sale)} className="text-orange-600 hover:text-orange-900 flex items-center"><RotateCcw className="w-4 h-4 mr-1" /> Devolver</button>
+                    )}
                   </td>
                 </tr>
               ))}
-              {sales.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    Nenhuma venda registada ainda.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Invoice Modal */}
-      {viewInvoice && (
-        <InvoiceModal
-          isOpen={!!viewInvoice}
-          onClose={() => setViewInvoice(null)}
-          sale={viewInvoice}
-          settings={settings}
-        />
+      {/* Modal Fatura */}
+      {viewInvoice && <InvoiceModal isOpen={!!viewInvoice} onClose={() => setViewInvoice(null)} sale={viewInvoice} settings={settings} />}
+
+      {/* Modal Devolução */}
+      {returnModalOpen && saleToReturn && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 shadow-xl">
+            <h3 className="text-lg font-bold mb-4 dark:text-white">Processar Devolução (#{saleToReturn.id.slice(-4)})</h3>
+            <p className="text-sm text-gray-500 mb-4">Indique a quantidade a devolver de cada item.</p>
+
+            <div className="space-y-3 max-h-60 overflow-y-auto mb-6">
+              {saleToReturn.items.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between p-2 border rounded dark:border-gray-700">
+                  <div className="flex-1">
+                    <div className="font-medium dark:text-white">{item.productName}</div>
+                    <div className="text-xs text-gray-500">Comprou: {item.quantity} un.</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs dark:text-gray-400">Devolver:</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={item.quantity}
+                      className="w-16 border rounded p-1 dark:bg-gray-700 dark:text-white"
+                      value={returnQuantities[item.productId] || 0}
+                      onChange={(e) => {
+                        const val = Math.min(parseInt(e.target.value) || 0, item.quantity);
+                        setReturnQuantities(prev => ({ ...prev, [item.productId]: val }));
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setReturnModalOpen(false)} className="px-4 py-2 border rounded hover:bg-gray-100 dark:text-white dark:hover:bg-gray-700">Cancelar</button>
+              <button onClick={handleProcessReturn} className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">Confirmar Devolução</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
