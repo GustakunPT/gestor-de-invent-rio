@@ -31,7 +31,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
     batchNumber: '',
     price: 0,
     costPrice: 0,
-    supplierId: ''
+    supplierId: '',
+    // Novos campos
+    expirationDate: '',
+    weight: undefined,
+    dimensions: '',
+    barcode: '',
+    taxRate: 23,
+    notes: ''
   });
 
   useEffect(() => {
@@ -48,7 +55,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         batchNumber: initialData.batchNumber || '',
         price: initialData.price,
         costPrice: initialData.costPrice || 0,
-        supplierId: initialData.supplierId || ''
+        supplierId: initialData.supplierId || '',
+        // Novos campos
+        expirationDate: initialData.expirationDate || '',
+        weight: initialData.weight,
+        dimensions: initialData.dimensions || '',
+        barcode: initialData.barcode || '',
+        taxRate: initialData.taxRate || 23,
+        notes: initialData.notes || ''
       });
     } else {
       setFormData({
@@ -63,7 +77,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         batchNumber: '',
         price: 0,
         costPrice: 0,
-        supplierId: ''
+        supplierId: '',
+        expirationDate: '',
+        weight: undefined,
+        dimensions: '',
+        barcode: '',
+        taxRate: 23,
+        notes: ''
       });
     }
   }, [initialData, type, isOpen]);
@@ -78,8 +98,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div 
-          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" 
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
           aria-hidden="true"
           onClick={onClose}
         ></div>
@@ -169,7 +189,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <option value="Outros">Outros</option>
                   </select>
                 </div>
-                 <div>
+                <div>
                   <label htmlFor="supplier" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Fornecedor Principal</label>
                   <select
                     id="supplier"
@@ -246,6 +266,84 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                     value={formData.price}
                     onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+              </div>
+
+              {/* Secção: Novos Campos */}
+              <div className="border-t border-gray-200 dark:border-gray-600 pt-4 mt-4">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Informações Adicionais</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="barcode" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Código de Barras (EAN)</label>
+                    <input
+                      type="text"
+                      id="barcode"
+                      className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.barcode || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
+                      placeholder="EAN-13"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="expirationDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Data de Validade</label>
+                    <input
+                      type="date"
+                      id="expirationDate"
+                      className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.expirationDate || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, expirationDate: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="taxRate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Taxa IVA (%)</label>
+                    <select
+                      id="taxRate"
+                      className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.taxRate || 23}
+                      onChange={(e) => setFormData(prev => ({ ...prev, taxRate: parseInt(e.target.value) }))}
+                    >
+                      <option value={6}>6% (Reduzida)</option>
+                      <option value={13}>13% (Intermédia)</option>
+                      <option value={23}>23% (Normal)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label htmlFor="weight" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Peso (kg)</label>
+                    <input
+                      type="number"
+                      id="weight"
+                      min="0"
+                      step="0.001"
+                      className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.weight ?? ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, weight: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                      placeholder="Ex: 0.5"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="dimensions" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Dimensões (LxAxP cm)</label>
+                    <input
+                      type="text"
+                      id="dimensions"
+                      className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      value={formData.dimensions || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, dimensions: e.target.value }))}
+                      placeholder="Ex: 10x5x2"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notas Internas</label>
+                  <textarea
+                    id="notes"
+                    rows={2}
+                    className="mt-1 block w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md shadow-sm py-2 px-3 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    value={formData.notes || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                    placeholder="Observações sobre o produto..."
                   />
                 </div>
               </div>

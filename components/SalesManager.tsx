@@ -1,24 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X } from 'lucide-react';
-import { Product, Sale, SaleItem, AppSettings, Customer } from '../types';
+import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard } from 'lucide-react';
+import { Product, Sale, SaleItem, AppSettings, Customer, PaymentMethod, Promotion } from '../types';
 import { InvoiceModal } from './InvoiceModal';
+import { isValidNIF, isValidEmail } from '../validators';
 
 interface SalesManagerProps {
   products: Product[];
   sales: Sale[];
   customers: Customer[];
+  promotions?: Promotion[];
   onNewSale: (sale: Sale) => void;
   settings: AppSettings;
 }
 
-export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, customers, onNewSale, settings }) => {
+export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, customers, promotions = [], onNewSale, settings }) => {
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
-  
+
   // New Sale State
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [cart, setCart] = useState<SaleItem[]>([]);
-  
+
+  // Payment State
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [discountReason, setDiscountReason] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
+
   // Customer State
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [customerName, setCustomerName] = useState('');
@@ -27,7 +36,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerPostalCode, setCustomerPostalCode] = useState('');
-  
+
   // Invoice State
   const [viewInvoice, setViewInvoice] = useState<Sale | null>(null);
 
@@ -36,42 +45,71 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
   // Auto-fill customer data when selected from dropdown
   useEffect(() => {
     if (selectedCustomerId) {
-        const customer = customers.find(c => c.id === selectedCustomerId);
-        if (customer) {
-            setCustomerName(customer.name);
-            setCustomerNif(customer.nif);
-            setCustomerEmail(customer.email);
-            setCustomerPhone(customer.phone);
-            setCustomerAddress(customer.address);
-            setCustomerPostalCode(customer.postalCode);
-        }
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      if (customer) {
+        setCustomerName(customer.name);
+        setCustomerNif(customer.nif);
+        setCustomerEmail(customer.email);
+        setCustomerPhone(customer.phone);
+        setCustomerAddress(customer.address);
+        setCustomerPostalCode(customer.postalCode);
+      }
     } else {
-        // Only clear if user explicitly clears selection, but maybe they want to type manually?
-        // Let's decide: if they clear selection, we clear fields to avoid confusion.
-        // But we won't clear if they are just typing.
+      // Only clear if user explicitly clears selection, but maybe they want to type manually?
+      // Let's decide: if they clear selection, we clear fields to avoid confusion.
+      // But we won't clear if they are just typing.
     }
   }, [selectedCustomerId, customers]);
 
   const handleClearCustomer = () => {
-      setSelectedCustomerId('');
-      setCustomerName('');
-      setCustomerNif('');
-      setCustomerEmail('');
-      setCustomerPhone('');
-      setCustomerAddress('');
-      setCustomerPostalCode('');
+    setSelectedCustomerId('');
+    setCustomerName('');
+    setCustomerNif('');
+    setCustomerEmail('');
+    setCustomerPhone('');
+    setCustomerAddress('');
+    setCustomerPostalCode('');
   };
 
-  // NIF Validation Logic
+  // NIF Validation Logic - usando validador centralizado
   const isValidNif = (nif: string) => {
-    if (!nif) return true; // Empty is valid (will be handled as consumer final if name empty, or just no nif)
-    const nifRegex = /^[0-9]{9}$/;
-    return nifRegex.test(nif);
+    if (!nif) return true; // Empty is valid
+    return isValidNIF(nif);
+  };
+
+  // Aplicar código promocional
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return;
+    const promo = promotions.find(p =>
+      p.couponCode === couponCode.toUpperCase() &&
+      p.isActive &&
+      new Date() >= new Date(p.startDate) &&
+      new Date() <= new Date(p.endDate)
+    );
+    if (promo) {
+      setAppliedPromotion(promo);
+      if (promo.type === 'PERCENTAGE') {
+        setDiscountAmount(cartTotal * (promo.value / 100));
+      } else if (promo.type === 'FIXED') {
+        setDiscountAmount(promo.value);
+      }
+      setDiscountReason(`Promoção: ${promo.name}`);
+    } else {
+      alert('Código promocional inválido ou expirado.');
+    }
+  };
+
+  // Remover promoção
+  const handleRemoveCoupon = () => {
+    setAppliedPromotion(null);
+    setDiscountAmount(0);
+    setDiscountReason('');
+    setCouponCode('');
   };
 
   const addToCart = () => {
     if (!selectedProduct) return;
-    
+
     // Check stock
     const currentInCart = cart.find(item => item.productId === selectedProduct.id)?.quantity || 0;
     if (selectedProduct.quantity < currentInCart + quantity) {
@@ -81,8 +119,8 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
 
     const existingItem = cart.find(item => item.productId === selectedProductId);
     if (existingItem) {
-      setCart(cart.map(item => 
-        item.productId === selectedProductId 
+      setCart(cart.map(item =>
+        item.productId === selectedProductId
           ? { ...item, quantity: item.quantity + quantity, total: (item.quantity + quantity) * item.unitPrice }
           : item
       ));
@@ -132,7 +170,17 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
       }
     }
 
-    const totalAmount = cart.reduce((acc, item) => acc + item.total, 0);
+    const subtotal = cart.reduce((acc, item) => acc + item.total, 0);
+    const finalDiscount = Math.min(discountAmount, subtotal); // Não pode ser maior que subtotal
+    const totalAmount = subtotal - finalDiscount;
+
+    // Calcular lucro estimado (preço venda - custo)
+    const profit = cart.reduce((acc, item) => {
+      const product = products.find(p => p.id === item.productId);
+      const costPrice = product?.costPrice || 0;
+      return acc + ((item.unitPrice - costPrice) * item.quantity);
+    }, 0) - finalDiscount;
+
     const newSale: Sale = {
       id: `INV-${Date.now()}`,
       customerName: finalName,
@@ -141,22 +189,34 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
       customerPhone: customerPhone.trim(),
       customerAddress: customerAddress.trim(),
       customerPostalCode: customerPostalCode.trim(),
-      date: new Date().toLocaleString('pt-PT'),
+      date: new Date().toISOString(),
       items: [...cart],
       totalAmount,
+      subtotal,
+      paymentMethod,
+      paymentStatus: 'PAID',
+      status: 'COMPLETED',
+      discountAmount: finalDiscount,
+      discountReason,
+      profit,
       userId: '' // Populated in App.tsx
     };
 
     onNewSale(newSale);
-    
+
     // Reset Form
     setCart([]);
     handleClearCustomer();
-    
+    setPaymentMethod('CASH');
+    setDiscountAmount(0);
+    setDiscountReason('');
+    handleRemoveCoupon();
+
     setViewInvoice(newSale); // Show invoice immediately
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + item.total, 0);
+  const finalTotal = Math.max(0, cartTotal - discountAmount);
 
   return (
     <div className="space-y-6">
@@ -164,18 +224,16 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
       <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl px-4 pt-4">
         <button
           onClick={() => setActiveTab('new')}
-          className={`pb-3 md:pb-4 px-2 md:px-4 font-medium text-xs md:text-sm transition-colors relative ${
-            activeTab === 'new' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-          }`}
+          className={`pb-3 md:pb-4 px-2 md:px-4 font-medium text-xs md:text-sm transition-colors relative ${activeTab === 'new' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
         >
           Nova Venda
           {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`pb-3 md:pb-4 px-2 md:px-4 font-medium text-xs md:text-sm transition-colors relative ${
-            activeTab === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-          }`}
+          className={`pb-3 md:pb-4 px-2 md:px-4 font-medium text-xs md:text-sm transition-colors relative ${activeTab === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
         >
           Histórico de Vendas
           {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600 dark:bg-blue-400"></div>}
@@ -188,37 +246,37 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
               <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
-                    <User className="w-5 h-5 mr-2 text-gray-500" />
-                    Dados do Cliente
-                  </h3>
-                  {selectedCustomerId && (
-                      <button 
-                        onClick={handleClearCustomer}
-                        className="text-xs text-red-500 hover:text-red-700 flex items-center"
-                      >
-                          <X className="w-3 h-3 mr-1" /> Limpar seleção
-                      </button>
-                  )}
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center">
+                  <User className="w-5 h-5 mr-2 text-gray-500" />
+                  Dados do Cliente
+                </h3>
+                {selectedCustomerId && (
+                  <button
+                    onClick={handleClearCustomer}
+                    className="text-xs text-red-500 hover:text-red-700 flex items-center"
+                  >
+                    <X className="w-3 h-3 mr-1" /> Limpar seleção
+                  </button>
+                )}
               </div>
-              
+
               {/* Customer Selector */}
               <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
-                  <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
-                      Pesquisar Cliente Existente
-                  </label>
-                  <select
-                    className="w-full border border-blue-300 dark:border-blue-700 dark:bg-gray-800 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={selectedCustomerId}
-                    onChange={(e) => setSelectedCustomerId(e.target.value)}
-                  >
-                      <option value="">-- Selecione ou preencha manualmente --</option>
-                      {customers.map(c => (
-                          <option key={c.id} value={c.id}>
-                              {c.name} {c.nif ? `(NIF: ${c.nif})` : ''}
-                          </option>
-                      ))}
-                  </select>
+                <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-1">
+                  Pesquisar Cliente Existente
+                </label>
+                <select
+                  className="w-full border border-blue-300 dark:border-blue-700 dark:bg-gray-800 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={selectedCustomerId}
+                  onChange={(e) => setSelectedCustomerId(e.target.value)}
+                >
+                  <option value="">-- Selecione ou preencha manualmente --</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} {c.nif ? `(NIF: ${c.nif})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -273,7 +331,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
                   />
                 </div>
                 <div className="md:col-span-1">
-                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Morada</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Morada</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500"
@@ -283,7 +341,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
                   />
                 </div>
                 <div className="md:col-span-1">
-                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Postal</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Postal</label>
                   <input
                     type="text"
                     className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-300 dark:placeholder-gray-500"
@@ -348,7 +406,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Resumo do Pedido</h3>
-              
+
               <div className="flex-1 overflow-y-auto min-h-[200px] mb-4">
                 {cart.length === 0 ? (
                   <p className="text-gray-400 dark:text-gray-500 text-center mt-10">O carrinho está vazio.</p>
@@ -362,7 +420,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-medium text-gray-900 dark:text-white">{item.total}€</span>
-                          <button 
+                          <button
                             onClick={() => removeFromCart(item.productId)}
                             className="text-red-400 hover:text-red-600"
                           >
@@ -419,7 +477,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
                     {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: settings.currency }).format(sale.totalAmount)}
                   </td>
                   <td className="px-3 py-3 sm:px-6 sm:py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button 
+                    <button
                       onClick={() => setViewInvoice(sale)}
                       className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center justify-end gap-1 ml-auto"
                     >
@@ -443,10 +501,10 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
 
       {/* Invoice Modal */}
       {viewInvoice && (
-        <InvoiceModal 
-          isOpen={!!viewInvoice} 
-          onClose={() => setViewInvoice(null)} 
-          sale={viewInvoice} 
+        <InvoiceModal
+          isOpen={!!viewInvoice}
+          onClose={() => setViewInvoice(null)}
+          sale={viewInvoice}
           settings={settings}
         />
       )}
