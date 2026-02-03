@@ -212,7 +212,7 @@ export const SalesDashboard: React.FC<SalesDashboardProps> = ({
       paymentStats[pm].amount += sale.totalAmount;
 
       // 3. Estatísticas por Produto (itera cada item da venda)
-      sale.items.forEach(item => {
+      (sale.items || []).forEach(item => {
         if (!productStats[item.productId]) {
           // Buscar custo do produto para cálculo de margem
           const prod = products.find(p => p.id === item.productId);
