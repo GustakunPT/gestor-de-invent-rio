@@ -331,8 +331,17 @@ const App: React.FC = () => {
 
   const handleCreatePO = async (po: PurchaseOrder) => {
     setIsLoading(true);
-    await api.savePurchaseOrder(po);
+    const result = await api.savePurchaseOrder(po);
+
+    if (!result.success) {
+      toast.error('Erro ao salvar Encomenda', `Erro: ${(result as any).error?.message || 'Erro desconhecido'}`);
+      console.error(result);
+      setIsLoading(false);
+      return;
+    }
+
     await addHistory('COMPRA', po.id, po.supplierName, 'Nova Encomenda');
+    toast.success('Encomenda Criada', `A ordem ${po.id} foi registada.`);
     await loadData();
     setIsLoading(false);
   };
