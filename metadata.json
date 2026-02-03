@@ -1,0 +1,5 @@
+{
+  "name": "Gestor de Inventário",
+  "description": "Aplicação de gestão de inventário completa com dashboard, tabela de produtos e gestão CRUD, simulando um sistema Google Apps Script em React.",
+  "requestFramePermissions": []
+}
