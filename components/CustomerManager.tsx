@@ -66,15 +66,21 @@ export const CustomerManager: React.FC<CustomerManagerProps> = ({ customers, onA
     e.preventDefault();
 
     // Validar NIF se preenchido
-    if (formData.nif && !isValidNIF(formData.nif)) {
-      alert('NIF inválido. Deve conter 9 dígitos válidos.');
-      return;
+    if (formData.nif) {
+      const nifValidation = isValidNIF(formData.nif);
+      if (!nifValidation.isValid) {
+        alert(nifValidation.message || 'NIF inválido');
+        return;
+      }
     }
 
     // Validar email se preenchido
-    if (formData.email && !isValidEmail(formData.email)) {
-      alert('Email inválido.');
-      return;
+    if (formData.email) {
+      const emailValidation = isValidEmail(formData.email);
+      if (!emailValidation.isValid) {
+        alert(emailValidation.message || 'Email inválido');
+        return;
+      }
     }
 
     if (editingId) {

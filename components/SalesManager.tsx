@@ -74,7 +74,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({ products, sales, cus
   // NIF Validation Logic - usando validador centralizado
   const isValidNif = (nif: string) => {
     if (!nif) return true; // Empty is valid
-    return isValidNIF(nif);
+    return isValidNIF(nif).isValid;
   };
 
   // Aplicar código promocional
