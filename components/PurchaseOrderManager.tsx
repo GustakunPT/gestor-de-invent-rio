@@ -20,7 +20,7 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [cart, setCart] = useState<PurchaseOrderItem[]>([]);
-  
+
   // Item selection
   const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState(1);
@@ -37,7 +37,7 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
       costPrice,
       total: quantity * costPrice
     }]);
-    
+
     // Reset inputs
     setSelectedProductId('');
     setQuantity(1);
@@ -52,7 +52,7 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
       id: `PO-${Date.now()}`,
       supplierId: supplier.id,
       supplierName: supplier.name,
-      date: new Date().toLocaleString('pt-PT'),
+      date: new Date().toISOString(), // Use ISO string for DB compatibility
       status: 'PENDENTE',
       items: cart,
       totalAmount: cart.reduce((acc, item) => acc + item.total, 0)
@@ -77,18 +77,16 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
       <div className="flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl px-6 pt-4">
         <button
           onClick={() => setActiveTab('new')}
-          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${
-            activeTab === 'new' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-          }`}
+          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'new' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
         >
           Nova Encomenda (Entrada)
           {activeTab === 'new' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600"></div>}
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${
-            activeTab === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-          }`}
+          className={`pb-4 px-4 font-medium text-sm transition-colors relative ${activeTab === 'history' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
         >
           Histórico de Compras
           {activeTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-600"></div>}
@@ -167,28 +165,28 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 h-full flex flex-col">
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Resumo da Ordem</h3>
               <div className="flex-1 overflow-y-auto mb-4 min-h-[200px]">
-                 {cart.length === 0 ? (
-                   <p className="text-gray-400 text-center text-sm">Nenhum item adicionado.</p>
-                 ) : (
-                   <ul className="divide-y divide-gray-100 dark:divide-gray-700">
-                     {cart.map((item, idx) => (
-                       <li key={idx} className="py-2 text-sm">
-                         <div className="flex justify-between">
-                           <span className="font-medium text-gray-900 dark:text-white">{item.productName}</span>
-                           <span className="text-gray-900 dark:text-white">{item.total}€</span>
-                         </div>
-                         <div className="text-gray-500 dark:text-gray-400">
-                           {item.quantity} x {item.costPrice}€
-                         </div>
-                       </li>
-                     ))}
-                   </ul>
-                 )}
+                {cart.length === 0 ? (
+                  <p className="text-gray-400 text-center text-sm">Nenhum item adicionado.</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {cart.map((item, idx) => (
+                      <li key={idx} className="py-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="font-medium text-gray-900 dark:text-white">{item.productName}</span>
+                          <span className="text-gray-900 dark:text-white">{item.total}€</span>
+                        </div>
+                        <div className="text-gray-500 dark:text-gray-400">
+                          {item.quantity} x {item.costPrice}€
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
                 <div className="flex justify-between font-bold text-lg mb-4 text-gray-900 dark:text-white">
                   <span>Total</span>
-                  <span>{cart.reduce((a,b) => a + b.total, 0)}€</span>
+                  <span>{cart.reduce((a, b) => a + b.total, 0)}€</span>
                 </div>
                 <button
                   onClick={handleCreateOrder}
@@ -219,11 +217,10 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
                 <tr key={po.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{po.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{po.supplierName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{po.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(po.date).toLocaleString('pt-PT')}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      po.status === 'RECEBIDO' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
-                    }`}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${po.status === 'RECEBIDO' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
+                      }`}>
                       {po.status}
                     </span>
                   </td>
