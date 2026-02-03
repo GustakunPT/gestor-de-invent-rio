@@ -42,21 +42,32 @@ export const api = {
   // --- Carregar Dados Iniciais ---
   getInitialData: async () => {
     try {
-      const [products, users, customers, suppliers, sales, purchases, history] = await Promise.all([
+      // 1. Fetch data in parallel (Removed complex joins that were causing issues)
+      const [productsRes, usersRes, customersRes, suppliersRes, salesRes, purchasesRes, historyRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('app_users').select('*'),
         supabase.from('customers').select('*'),
         supabase.from('suppliers').select('*'),
         supabase.from('sales').select('*, sale_items(*)'),
-        supabase.from('purchase_orders').select('*, purchase_order_items(*), suppliers(name)'),
+        supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('history').select('*').order('timestamp', { ascending: false }).limit(100)
       ]);
 
+      // 2. Check for critical errors (Logging them)
+      if (productsRes.error) console.error("Error fetching products:", productsRes.error);
+      if (salesRes.error) console.error("Error fetching sales:", salesRes.error);
+      if (purchasesRes.error) console.error("Error fetching purchases:", purchasesRes.error);
+      if (suppliersRes.error) console.error("Error fetching suppliers:", suppliersRes.error);
+
+      // 3. Helper data for mapping
+      const suppliers = suppliersRes.data || [];
+
       return {
-        products: products.data?.map(mapProduct) || [],
-        users: users.data || [],
-        customers: customers.data?.map((c: any) => ({ ...c, postalCode: c.postal_code })) || [],
-        sales: sales.data?.map((s: any) => ({
+        products: productsRes.data?.map(mapProduct) || [],
+        users: usersRes.data || [],
+        customers: customersRes.data?.map((c: any) => ({ ...c, postalCode: c.postal_code })) || [],
+
+        sales: salesRes.data?.map((s: any) => ({
           ...s,
           customerName: s.customer_name,
           customerNif: s.customer_nif,
@@ -72,24 +83,30 @@ export const api = {
             discount: Number(i.discount || 0)
           })) || []
         })) || [],
-        suppliers: suppliers.data || [],
-        purchaseOrders: purchases.data?.map((p: any) => ({
-          id: p.id,
-          supplierId: p.supplier_id,
-          supplierName: p.suppliers?.name || 'Desconhecido',
-          date: p.date,
-          status: p.status,
-          totalAmount: Number(p.total),
-          notes: p.notes,
-          items: p.purchase_order_items?.map((i: any) => ({
-            productId: i.product_id,
-            productName: i.product_name,
-            quantity: i.quantity,
-            costPrice: Number(i.cost),
-            total: Number(i.cost) * i.quantity
-          })) || []
-        })) || [],
-        history: history.data?.map((h: any) => ({
+
+        suppliers: suppliers,
+
+        purchaseOrders: purchasesRes.data?.map((p: any) => {
+          const supplier = suppliers.find((s: any) => s.id === p.supplier_id);
+          return {
+            id: p.id,
+            supplierId: p.supplier_id,
+            supplierName: supplier?.name || p.supplier_name || 'Desconhecido',
+            date: p.date,
+            status: p.status,
+            totalAmount: Number(p.total),
+            notes: p.notes,
+            items: p.purchase_order_items?.map((i: any) => ({
+              productId: i.product_id,
+              productName: i.product_name,
+              quantity: i.quantity,
+              costPrice: Number(i.cost),
+              total: Number(i.cost) * i.quantity
+            })) || []
+          };
+        }) || [],
+
+        history: historyRes.data?.map((h: any) => ({
           ...h,
           userId: h.user_id,
           userName: h.user_name,
@@ -98,7 +115,7 @@ export const api = {
         })) || []
       };
     } catch (error) {
-      console.error("Erro ao carregar dados:", error);
+      console.error("Critical error in getInitialData:", error);
       return { products: [], users: [], customers: [], sales: [], suppliers: [], purchaseOrders: [], history: [] };
     }
   },
