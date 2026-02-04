@@ -302,7 +302,9 @@ const App: React.FC = () => {
     const result = await api.saveSale(saleWithUser);
 
     if (!result.success) {
-      toast.error('Erro ao guardar venda', 'Não foi possível salvar a venda na base de dados.');
+      const errorDetails = result.error?.message || result.error?.code || JSON.stringify(result.error) || 'Erro desconhecido';
+      console.error('Erro ao guardar venda:', result.error);
+      toast.error('Erro ao guardar venda', `Não foi possível salvar: ${errorDetails}`);
       setIsLoading(false);
       return;
     }
