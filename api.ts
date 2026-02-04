@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient';
 import { Product, User, Customer, Sale, Supplier, PurchaseOrder, HistoryEntry } from './types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { formatDateTime } from './utils/dateUtils';
 
 // Mapeamento de dados (Base de dados -> App)
 const mapProduct = (p: any): Product => ({
@@ -335,18 +336,30 @@ export const api = {
     try {
       const doc = new jsPDF();
 
+      // Helper for payment method label
+      const getPaymentLabel = (method: string | undefined): string => {
+        switch (method) {
+          case 'CASH': return 'Dinheiro';
+          case 'CARD': return 'Cartão';
+          case 'MULTIBANCO': return 'Multibanco';
+          case 'MBWAY': return 'MBWay';
+          default: return 'N/D';
+        }
+      };
+
       doc.setFontSize(18);
       doc.text("FATURA / RECIBO", 14, 20);
 
       doc.setFontSize(10);
       doc.text(`Fatura Nº: ${sale.id}`, 14, 30);
-      doc.text(`Data: ${new Date().toLocaleDateString('pt-PT')}`, 14, 35);
+      doc.text(`Data: ${formatDateTime(new Date())}`, 14, 35);
+      doc.text(`Pagamento: ${getPaymentLabel(sale.paymentMethod)}`, 14, 40);
 
-      doc.text("Cliente:", 14, 45);
+      doc.text("Cliente:", 14, 50);
       doc.setFont("helvetica", "bold");
-      doc.text(`${sale.customerName}`, 14, 50);
+      doc.text(`${sale.customerName}`, 14, 55);
       doc.setFont("helvetica", "normal");
-      if (sale.customerNif) doc.text(`NIF: ${sale.customerNif}`, 14, 55);
+      if (sale.customerNif) doc.text(`NIF: ${sale.customerNif}`, 14, 60);
 
       const tableBody = sale.items.map(item => [
         item.productName,
@@ -356,7 +369,7 @@ export const api = {
       ]);
 
       autoTable(doc, {
-        startY: 70,
+        startY: 75,
         head: [['Produto', 'Qtd', 'Preço Unit', 'Total']],
         body: tableBody,
       });

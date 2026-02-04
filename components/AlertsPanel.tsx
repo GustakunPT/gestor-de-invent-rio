@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertTriangle, AlertCircle, Package, Clock, X, Bell } from 'lucide-react';
 import { StockAlert } from '../hooks/useStockAlerts';
+import { formatDateTime } from '../utils/dateUtils';
 
 interface AlertsPanelProps {
     alerts: StockAlert[];
@@ -76,7 +77,7 @@ export const AlertsPanel: React.FC<AlertsPanelProps> = ({ alerts, onDismiss, onD
                             <div>
                                 <p className="font-medium text-sm">{alert.message}</p>
                                 <p className="text-xs opacity-75 mt-1">
-                                    {new Date(alert.createdAt).toLocaleString('pt-PT')}
+                                    {formatDateTime(alert.createdAt)}
                                 </p>
                             </div>
                         </div>

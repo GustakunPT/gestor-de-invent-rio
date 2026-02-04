@@ -500,32 +500,96 @@ const App: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-6 lg:px-8 py-4 md:py-8">
         {view === 'dashboard' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-              <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total em Stock</p>
-                    <p className="text-2xl font-bold dark:text-white">{stats.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}</p>
+            {/* Welcome Section */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 p-6 rounded-2xl shadow-lg text-white">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold">
+                    {new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 19 ? 'Boa tarde' : 'Boa noite'}, {currentUser?.name?.split(' ')[0] || 'Utilizador'}! 👋
+                  </h1>
+                  <p className="text-blue-100 mt-1">
+                    {new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[100px]">
+                    <p className="text-2xl font-bold">{sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString()).length}</p>
+                    <p className="text-xs text-blue-100">Vendas Hoje</p>
                   </div>
-                  <TrendingUp className="text-green-500" />
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[100px]">
+                    <p className="text-2xl font-bold">
+                      {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString())
+                        .reduce((acc, s) => acc + s.totalAmount, 0)
+                        .toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                    </p>
+                    <p className="text-xs text-blue-100">Receita Hoje</p>
+                  </div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Value */}
+              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Valor em Stock</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                      {stats.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                    </p>
+                  </div>
+                  <div className="p-2.5 bg-gradient-to-br from-green-400 to-green-600 rounded-lg shadow-sm">
+                    <TrendingUp className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Low Stock Alerts */}
+              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Alertas Stock</p>
-                    <p className="text-2xl font-bold text-red-500">{stats.lowStockCount}</p>
+                    <p className={`text-2xl font-bold mt-1 ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                      {stats.lowStockCount}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">{stats.lowStockCount === 0 ? 'Tudo OK!' : 'Produtos baixos'}</p>
                   </div>
-                  <Barcode className="text-red-500" />
+                  <div className={`p-2.5 rounded-lg shadow-sm ${stats.lowStockCount > 0 ? 'bg-gradient-to-br from-red-400 to-red-600' : 'bg-gradient-to-br from-green-400 to-green-600'}`}>
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
                 </div>
               </div>
-              <div className="bg-white dark:bg-gray-800 p-4 md:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+
+              {/* Total Products */}
+              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total SKUs</p>
-                    <p className="text-2xl font-bold dark:text-white">{stats.totalItems}</p>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Produtos</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{products.length}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{stats.totalItems} unidades</p>
                   </div>
-                  <Package className="text-blue-500" />
+                  <div className="p-2.5 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg shadow-sm">
+                    <Package className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Profit Margin */}
+              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Margem Média</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                      {products.length > 0
+                        ? ((1 - products.reduce((acc, p) => acc + (p.costPrice || 0), 0) / products.reduce((acc, p) => acc + p.price, 0)) * 100).toFixed(0)
+                        : 0}%
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">Lucro potencial</p>
+                  </div>
+                  <div className="p-2.5 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg shadow-sm">
+                    <BarChart2 className="w-5 h-5 text-white" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -533,23 +597,51 @@ const App: React.FC = () => {
             <DashboardCharts products={dashboardFilteredProducts} />
 
             {activeAlerts.length > 0 && (
-              <div className="mt-6">
-                <AlertsPanel alerts={activeAlerts} onDismiss={handleDismissAlert} onDismissAll={handleDismissAllAlerts} />
-              </div>
+              <AlertsPanel alerts={activeAlerts} onDismiss={handleDismissAlert} onDismissAll={handleDismissAllAlerts} />
             )}
 
-            <div className="mt-6 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Ações Rápidas</h3>
-              <div className="flex flex-wrap gap-3">
-                <button onClick={handleExportInventory} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors">
-                  <Download className="w-4 h-4 mr-2" /> Exportar Inventário
+            {/* Quick Actions - Redesigned */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <span className="w-1.5 h-5 bg-blue-600 rounded-full"></span>
+                Ações Rápidas
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                <button
+                  onClick={() => setView('sales')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
+                >
+                  <ShoppingCart className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-blue-600">Nova Venda</span>
                 </button>
-                <button onClick={handleExportSales} className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors">
-                  <Download className="w-4 h-4 mr-2" /> Exportar Vendas
+                <button
+                  onClick={handleOpenCreate}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group"
+                >
+                  <Plus className="w-6 h-6 text-gray-400 group-hover:text-green-600 transition-colors" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-green-600">Novo Produto</span>
                 </button>
-                {currentUser.role === 'ADMIN' && (
-                  <button onClick={handleCreateBackup} className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors">
-                    <Database className="w-4 h-4 mr-2" /> Backup
+                <button
+                  onClick={handleExportInventory}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+                >
+                  <Download className="w-6 h-6 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-purple-600">Exportar PDF</span>
+                </button>
+                <button
+                  onClick={() => setView('customers')}
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group"
+                >
+                  <Users className="w-6 h-6 text-gray-400 group-hover:text-orange-600 transition-colors" />
+                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-orange-600">Clientes</span>
+                </button>
+                {currentUser?.role === 'ADMIN' && (
+                  <button
+                    onClick={handleCreateBackup}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all group"
+                  >
+                    <Database className="w-6 h-6 text-gray-400 group-hover:text-teal-600 transition-colors" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-teal-600">Backup</span>
                   </button>
                 )}
               </div>

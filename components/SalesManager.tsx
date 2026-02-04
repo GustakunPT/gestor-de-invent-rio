@@ -3,11 +3,12 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard, RotateCcw, ScanLine } from 'lucide-react';
+import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard, RotateCcw, ScanLine, Banknote, Smartphone, Building2, Send, Receipt } from 'lucide-react';
 import { Product, Sale, SaleItem, AppSettings, Customer, PaymentMethod, Promotion } from '../types';
 import { InvoiceModal } from './InvoiceModal';
 import { isValidNIF, isValidEmail } from '../validators';
-import { useBarcodeScanner } from '../hooks/useBarcodeScanner'; // Novo Hook
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { formatDateTime } from '../utils/dateUtils';
 
 // Definição das props recebidas pelo componente
 interface SalesManagerProps {
@@ -351,7 +352,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
 
           <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border h-full flex flex-col">
             <h3 className="font-medium mb-4 text-gray-900 dark:text-white">Carrinho</h3>
-            <div className="flex-1 overflow-y-auto min-h-[200px]">
+            <div className="flex-1 overflow-y-auto min-h-[150px]">
               {cart.map((item, idx) => (
                 <div key={idx} className="flex justify-between py-2 border-b dark:border-gray-700">
                   <div>
@@ -366,7 +367,35 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
               ))}
               {cart.length === 0 && <div className="text-center text-gray-400 mt-10">Vazio</div>}
             </div>
-            <div className="mt-4 pt-4 border-t dark:border-gray-700">
+
+            {/* Payment Method Selector */}
+            {cart.length > 0 && (
+              <div className="pt-4 border-t dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Método de Pagamento</label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {[
+                    { value: 'CASH', label: 'Dinheiro', icon: Banknote },
+                    { value: 'CARD', label: 'Cartão', icon: CreditCard },
+                    { value: 'MULTIBANCO', label: 'Multibanco', icon: Building2 },
+                    { value: 'MBWAY', label: 'MBWay', icon: Smartphone },
+                  ].map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => setPaymentMethod(value as PaymentMethod)}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${paymentMethod === value
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 text-gray-500'
+                        }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-sm font-medium">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 border-t dark:border-gray-700">
               <div className="flex justify-between text-xl font-bold mb-4 dark:text-white"><span>Total</span><span>{cartTotal.toFixed(2)}€</span></div>
               <button onClick={handleFinalizeSale} disabled={cart.length === 0} className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">Finalizar Venda</button>
             </div>
@@ -389,7 +418,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
                 <tr key={sale.id} className={sale.totalAmount < 0 ? 'bg-red-50 dark:bg-red-900/10' : ''}>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">#{sale.id.slice(-4)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm dark:text-gray-200">{sale.customerName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(sale.date).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDateTime(sale.date)}</td>
                   <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-bold ${sale.totalAmount < 0 ? 'text-red-600' : 'dark:text-white'}`}>
                     {sale.totalAmount.toFixed(2)}€
                   </td>

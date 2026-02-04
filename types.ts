@@ -10,7 +10,7 @@ export enum ModalType {
   NONE = 'NONE'
 }
 
-export type PaymentMethod = 'CASH' | 'CARD' | 'MBWAY' | 'TRANSFER' | 'CHECK' | 'CREDIT';
+export type PaymentMethod = 'CASH' | 'CARD' | 'MBWAY' | 'MULTIBANCO';
 export type PaymentStatus = 'PAID' | 'PENDING' | 'PARTIAL' | 'REFUNDED';
 export type SaleStatus = 'COMPLETED' | 'PENDING' | 'CANCELLED' | 'SHIPPED';
 export type UserRole = 'ADMIN' | 'STAFF';

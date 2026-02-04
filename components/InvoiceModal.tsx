@@ -1,7 +1,19 @@
 import React, { useState } from 'react';
 import { X, Printer, FileDown, Loader } from 'lucide-react';
-import { Sale, AppSettings } from '../types';
+import { Sale, AppSettings, PaymentMethod } from '../types';
 import { api } from '../api';
+import { formatDateTime } from '../utils/dateUtils';
+
+// Helper to display payment method in Portuguese
+const getPaymentMethodLabel = (method: PaymentMethod | undefined): string => {
+  switch (method) {
+    case 'CASH': return 'Dinheiro';
+    case 'CARD': return 'Cartão';
+    case 'MULTIBANCO': return 'Multibanco';
+    case 'MBWAY': return 'MBWay';
+    default: return 'N/D';
+  }
+};
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -34,17 +46,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, sal
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
     try {
-        const result = await api.generateInvoicePDF(sale);
-        if (result.success && result.url) {
-            // Open the generated PDF URL in a new tab
-            window.open(result.url, '_blank');
-        } else {
-            alert("Erro: " + (result.error || "Falha ao gerar URL"));
-        }
+      const result = await api.generateInvoicePDF(sale);
+      if (result.success && result.url) {
+        // Open the generated PDF URL in a new tab
+        window.open(result.url, '_blank');
+      } else {
+        alert("Erro: " + (result.error || "Falha ao gerar URL"));
+      }
     } catch (e) {
-        alert("Erro ao gerar PDF: " + e);
+      alert("Erro ao gerar PDF: " + e);
     } finally {
-        setIsGeneratingPdf(false);
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -65,8 +77,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, sal
           <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 sm:px-6 flex justify-between items-center border-b border-gray-200 dark:border-gray-600">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">Fatura #{sale.id}</h3>
             <div className="flex gap-2">
-              <button 
-                onClick={handleDownloadPdf} 
+              <button
+                onClick={handleDownloadPdf}
                 disabled={isGeneratingPdf}
                 className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-2 flex items-center gap-1 text-sm font-medium disabled:opacity-50"
                 title="Gerar PDF"
@@ -106,7 +118,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, sal
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Faturar a:</p>
                     <p className="text-lg font-medium text-gray-900 mt-1">{sale.customerName}</p>
                     {sale.customerNif && <p className="text-sm text-gray-600">NIF: {sale.customerNif}</p>}
-                    
+
                     {(sale.customerAddress || sale.customerEmail) && (
                       <div className="mt-2 space-y-0.5">
                         {sale.customerAddress && <p className="text-sm text-gray-600">{sale.customerAddress}</p>}
@@ -114,9 +126,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, sal
                       </div>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Data:</p>
-                    <p className="text-lg font-medium text-gray-900 mt-1">{sale.date}</p>
+                  <div className="text-right space-y-3">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Data:</p>
+                      <p className="text-lg font-medium text-gray-900 mt-1">{formatDateTime(sale.date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pagamento:</p>
+                      <p className="text-lg font-medium text-blue-600 mt-1">{getPaymentMethodLabel(sale.paymentMethod)}</p>
+                    </div>
                   </div>
                 </div>
               </div>

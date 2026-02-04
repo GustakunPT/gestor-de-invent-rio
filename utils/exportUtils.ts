@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Product, Sale, Customer, AppSettings } from '../types';
+import { formatDateTime, formatDate } from './dateUtils';
 
 /**
  * Exporta dados para CSV
@@ -50,7 +51,7 @@ export const exportProductsToPdf = (products: Product[], settings: AppSettings) 
 
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Gerado em: ${new Date().toLocaleString('pt-PT')}`, 14, 35);
+    doc.text(`Gerado em: ${formatDateTime(new Date())}`, 14, 35);
     doc.text(`Total de Produtos: ${products.length}`, 14, 41);
 
     // Estatísticas
@@ -121,7 +122,7 @@ export const exportSalesReport = (
 
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Período: ${startDate.toLocaleDateString('pt-PT')} a ${endDate.toLocaleDateString('pt-PT')}`, 14, 35);
+    doc.text(`Período: ${formatDate(startDate)} a ${formatDate(endDate)}`, 14, 35);
 
     // KPIs
     doc.setTextColor(0);
@@ -137,7 +138,7 @@ export const exportSalesReport = (
         head: [['ID', 'Data', 'Cliente', 'Itens', 'Total', 'Pagamento']],
         body: filteredSales.map(s => [
             s.id.slice(-8),
-            new Date(s.date).toLocaleDateString('pt-PT'),
+            formatDateTime(s.date),
             s.customerName.length > 25 ? s.customerName.substring(0, 25) + '...' : s.customerName,
             s.items.length.toString(),
             `${s.totalAmount.toFixed(2)}€`,

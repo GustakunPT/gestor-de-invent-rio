@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PackagePlus, Plus, CheckCircle, Clock } from 'lucide-react';
 import { Product, Supplier, PurchaseOrder, PurchaseOrderItem } from '../types';
+import { formatDateTime } from '../utils/dateUtils';
 
 interface PurchaseOrderManagerProps {
   products: Product[];
@@ -217,7 +218,7 @@ export const PurchaseOrderManager: React.FC<PurchaseOrderManagerProps> = ({
                 <tr key={po.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{po.id}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-200">{po.supplierName}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{new Date(po.date).toLocaleString('pt-PT')}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{formatDateTime(po.date)}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${po.status === 'RECEBIDO' ? 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300'
                       }`}>
