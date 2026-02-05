@@ -13,7 +13,7 @@ export enum ModalType {
 export type PaymentMethod = 'CASH' | 'CARD' | 'MBWAY' | 'MULTIBANCO';
 export type PaymentStatus = 'PAID' | 'PENDING' | 'PARTIAL' | 'REFUNDED';
 export type SaleStatus = 'COMPLETED' | 'PENDING' | 'CANCELLED' | 'SHIPPED';
-export type UserRole = 'ADMIN' | 'STAFF';
+export type UserRole = 'DEVELOPER' | 'ADMIN' | 'STAFF';
 export type CustomerType = 'INDIVIDUAL' | 'COMPANY';
 export type PurchaseOrderStatus = 'PENDENTE' | 'RECEBIDO' | 'CANCELADO';
 export type SubscriptionPlan = 'starter' | 'professional' | 'enterprise';

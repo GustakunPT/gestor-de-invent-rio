@@ -155,19 +155,39 @@ const App: React.FC = () => {
   }, [isDataLoaded]);
 
   // Handle Onboarding Completion
-  // Handle Onboarding Completion
   const handleOnboardingComplete = () => {
     // Force reload to ensure fresh auth state and data
     window.location.reload();
   };
 
-  // 2. Auth Guard & Onboarding Check
+  // 2. Auth Guard
   if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
 
-  // Show Onboarding if user exists but has no tenant linked
-  if (currentUser && !currentUser.tenant_id) {
-    return <OnboardingScreen currentUser={currentUser} onComplete={handleOnboardingComplete} />;
+  // 2.1. Access Control Check
+  // If user has no tenant AND is not a Developer, they are in limbo (should be invited)
+  if (!currentUser.tenant_id && currentUser.role !== 'DEVELOPER') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Conta Pendente</h2>
+          <p className="text-gray-500 mb-6">A sua conta não está associada a nenhuma empresa. Por favor, peça ao seu administrador para lhe enviar um convite.</p>
+          <button
+            onClick={() => authService.signOut().then(() => setCurrentUser(null))}
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Voltar ao Login
+          </button>
+        </div>
+      </div>
+    );
   }
+
+  // Developer Dashboard (Create Tenant flow might be part of Tenants tab now)
+  // We don't force OnboardingScreen anymore based on null tenant_id alone for Developers, 
+  // as they might want to manage multiple.
 
   // 2. Tema
   useEffect(() => {
@@ -248,19 +268,20 @@ const App: React.FC = () => {
       { id: 'promotions', label: 'Promoções', icon: Gift },
       { id: 'history', label: 'Histórico', icon: History },
       { id: 'users', label: 'Utilizadores', icon: Users },
-      // { id: 'tenants', label: 'Empresas', icon: Building2 }, // Hidden for standard users
       { id: 'settings', label: 'Config', icon: SettingsIcon },
     ];
 
-    // Only show Tenant tab if explicitly Super Admin (assuming we want to hide it mostly)
-    // Uncomment below if you want Super Admins to see it. User requested "no tab to create companies".
-    // if (currentUser.role === 'ADMIN' && currentUser.email === 'superadmin@example.com') { // Example logic
-    //   adminTabs.push({ id: 'tenants', label: 'Empresas', icon: Building2 });
-    // }
+    // Developer Tab
+    if (currentUser.role === 'DEVELOPER') {
+      return [...commonTabs, ...adminTabs, { id: 'tenants', label: 'Empresas', icon: Building2 }];
+    }
 
-    if (currentUser.role === 'ADMIN') {
+    // Company Admin
+    if (currentUser.role === 'ADMIN' || (currentUser as any).is_tenant_admin) {
       return [...commonTabs, ...adminTabs];
     }
+
+    // Operator (Staff)
     return commonTabs;
   }, [currentUser]);
 
