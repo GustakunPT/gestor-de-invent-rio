@@ -325,3 +325,18 @@ export interface BackupData {
   settings: AppSettings;
   promotions?: Promotion[];
 }
+
+// --- SUBSCRIPTION SYSTEM ---
+
+export interface Subscription {
+  id: string;
+  tenantId: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  startDate: string;
+  endDate?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}

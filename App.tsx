@@ -34,6 +34,7 @@ import { PromotionManager } from './components/PromotionManager';
 import { CommandPalette } from './components/CommandPalette';
 import { Sidebar } from './components/Sidebar';
 import { TenantManager } from './components/TenantManager';
+import { OnboardingScreen } from './components/OnboardingScreen';
 import { TenantProvider, useTenant } from './contexts/TenantContext';
 
 // Importa hooks personalizados
@@ -151,7 +152,27 @@ const App: React.FC = () => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isDataLoaded]);
+
+  // Handle Onboarding Completion
+  const handleOnboardingComplete = async () => {
+    // Reload user to get the new tenant_id
+    if (currentUser) {
+      const updatedUser = await authService.getCurrentUser();
+      if (updatedUser) {
+        setCurrentUser(updatedUser);
+        loadData();
+      }
+    }
+  };
+
+  // 2. Auth Guard & Onboarding Check
+  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
+
+  // Show Onboarding if user exists but has no tenant linked
+  if (currentUser && !currentUser.tenant_id) {
+    return <OnboardingScreen currentUser={currentUser} onComplete={handleOnboardingComplete} />;
+  }
 
   // 2. Tema
   useEffect(() => {
@@ -231,10 +252,16 @@ const App: React.FC = () => {
       { id: 'suppliers', label: 'Fornecedores', icon: Truck },
       { id: 'promotions', label: 'Promoções', icon: Gift },
       { id: 'history', label: 'Histórico', icon: History },
-      { id: 'users', label: 'Users', icon: UserIcon },
-      { id: 'tenants', label: 'Empresas', icon: Building2 },
+      { id: 'users', label: 'Utilizadores', icon: Users },
+      // { id: 'tenants', label: 'Empresas', icon: Building2 }, // Hidden for standard users
       { id: 'settings', label: 'Config', icon: SettingsIcon },
     ];
+
+    // Only show Tenant tab if explicitly Super Admin (assuming we want to hide it mostly)
+    // Uncomment below if you want Super Admins to see it. User requested "no tab to create companies".
+    // if (currentUser.role === 'ADMIN' && currentUser.email === 'superadmin@example.com') { // Example logic
+    //   adminTabs.push({ id: 'tenants', label: 'Empresas', icon: Building2 });
+    // }
 
     if (currentUser.role === 'ADMIN') {
       return [...commonTabs, ...adminTabs];
