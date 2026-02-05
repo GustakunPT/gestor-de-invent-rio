@@ -374,18 +374,45 @@ const App: React.FC = () => {
 
   const handleImportHistory = (file: File) => { toast.info('Importação de histórico', 'Funcionalidade em desenvolvimento.'); };
 
-  const handleAddPromotion = (p: Promotion) => {
-    setPromotions(prev => [...prev, p]);
-    toast.success('Promoção criada', p.name);
-    addHistory('PROMOCAO', p.id, p.name, 'Promoção criada');
+  const handleAddPromotion = async (p: Promotion) => {
+    try {
+      const result = await api.createPromotion(p);
+      if (result.success && result.promotion) {
+        setPromotions(prev => [...prev, result.promotion!]);
+        toast.success('Promoção criada', p.name);
+        await addHistory('PROMOCAO', result.promotion.id, p.name, 'Promoção criada');
+      } else {
+        toast.error('Erro ao criar promoção', 'Tente novamente.');
+      }
+    } catch (e) {
+      toast.error('Erro ao criar promoção', 'Erro de conexão.');
+    }
   };
-  const handleEditPromotion = (p: Promotion) => {
-    setPromotions(prev => prev.map(promo => promo.id === p.id ? p : promo));
-    toast.success('Promoção atualizada', p.name);
+  const handleEditPromotion = async (p: Promotion) => {
+    try {
+      const result = await api.updatePromotion(p.id, p);
+      if (result.success && result.promotion) {
+        setPromotions(prev => prev.map(promo => promo.id === p.id ? result.promotion! : promo));
+        toast.success('Promoção atualizada', p.name);
+      } else {
+        toast.error('Erro ao atualizar', 'Tente novamente.');
+      }
+    } catch (e) {
+      toast.error('Erro ao atualizar', 'Erro de conexão.');
+    }
   };
-  const handleDeletePromotion = (id: string) => {
-    setPromotions(prev => prev.filter(p => p.id !== id));
-    toast.success('Promoção apagada', 'Sucesso');
+  const handleDeletePromotion = async (id: string) => {
+    try {
+      const result = await api.deletePromotion(id);
+      if (result.success) {
+        setPromotions(prev => prev.filter(p => p.id !== id));
+        toast.success('Promoção apagada', 'Sucesso');
+      } else {
+        toast.error('Erro ao apagar', 'Tente novamente.');
+      }
+    } catch (e) {
+      toast.error('Erro ao apagar', 'Erro de conexão.');
+    }
   };
 
   const handleDismissAlert = (id: string) => setDismissedAlerts(prev => [...prev, id]);

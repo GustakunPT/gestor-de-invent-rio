@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { Product, User, Customer, Sale, Supplier, PurchaseOrder, HistoryEntry, Tenant, TenantSettings, Subscription } from './types';
+import { Product, User, Customer, Sale, Supplier, PurchaseOrder, HistoryEntry, Tenant, TenantSettings, Subscription, Promotion } from './types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatDateTime } from './utils/dateUtils';
@@ -60,14 +60,12 @@ export const api = {
   // --- Carregar Dados Iniciais ---
   getInitialData: async () => {
     try {
-      // 1. Fetch data in parallel (Removed complex joins that were causing issues)
-      const [productsRes, usersRes, customersRes, suppliersRes, salesRes, purchasesRes, historyRes] = await Promise.all([
+      // 1. Fetch data in parallel
+      const [productsRes, usersRes, customersRes, suppliersRes, salesRes, purchasesRes, historyRes, promotionsRes] = await Promise.all([
         supabase.from('products').select('*'),
         supabase.from('app_users').select('*'),
         supabase.from('customers').select('*'),
         supabase.from('suppliers').select('*'),
-        supabase.from('sales').select('*, sale_items(*)'),
-        supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('sales').select('*, sale_items(*)'),
         supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
         supabase.from('history').select('*').order('timestamp', { ascending: false }).limit(100),
@@ -77,26 +75,13 @@ export const api = {
       // 2. Check for critical errors (Logging them)
       if (productsRes.error) console.error("Error fetching products:", productsRes.error);
       if (salesRes.error) console.error("Error fetching sales:", salesRes.error);
-      if (salesRes.error) console.error("Error fetching sales:", salesRes.error);
       if (purchasesRes.error) console.error("Error fetching purchases:", purchasesRes.error);
       if (suppliersRes.error) console.error("Error fetching suppliers:", suppliersRes.error);
       if (historyRes.error) console.error("Error fetching history:", historyRes.error);
+      if (promotionsRes.error) console.error("Error fetching promotions:", promotionsRes.error);
 
-      // 3. Helper data for mapping
       // 3. Helper data for mapping
       const suppliers = suppliersRes.data || [];
-      const promotions = historyRes.data ? [] : []; // Just placeholder, using the Res below
-
-      // 4. Map results
-      const mappedPromotions = (usersRes ? [] : []); // TS Hack, fixing below
-
-      // Fix access to the 8th element (promotionsRes) which is not destructured above?
-      // Ah, I added it to the array but didn't destructure it.
-      const promotionsRes = (await Promise.all([
-        // ... wait, I need to fix the destructuring above first
-      ])) as any; // No, let's fix the destructuring in the chunk above properly or use index access is risky.
-
-      // Let's rely on valid destructuring.
 
       return {
         products: productsRes.data?.map(mapProduct) || [],
@@ -596,6 +581,90 @@ export const api = {
     } catch (e) {
       console.error(e);
       return { success: false, error: "Erro ao gerar PDF" };
+    }
+  },
+
+
+
+  // ============================================
+  // PROMOTIONS
+  // ============================================
+
+  createPromotion: async (promo: Partial<Promotion>) => {
+    try {
+      const dbPromo = {
+        name: promo.name,
+        type: promo.type,
+        value: promo.value,
+        coupon_code: promo.couponCode,
+        start_date: promo.startDate,
+        end_date: promo.endDate,
+        min_purchase: promo.minPurchase,
+        max_uses: promo.maxUses,
+        product_ids: promo.productIds,
+        category_ids: promo.categoryIds,
+        customer_ids: promo.customerIds,
+        is_active: promo.isActive !== undefined ? promo.isActive : true
+      };
+
+      const { data, error } = await supabase
+        .from('promotions')
+        .insert(dbPromo)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, promotion: mapPromotion(data) };
+    } catch (e) {
+      console.error('Error creating promotion:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  updatePromotion: async (id: string, updates: Partial<Promotion>) => {
+    try {
+      const dbUpdates: any = {};
+      if (updates.name) dbUpdates.name = updates.name;
+      if (updates.type) dbUpdates.type = updates.type;
+      if (updates.value) dbUpdates.value = updates.value;
+      if (updates.couponCode) dbUpdates.coupon_code = updates.couponCode;
+      if (updates.startDate) dbUpdates.start_date = updates.startDate;
+      if (updates.endDate) dbUpdates.end_date = updates.endDate;
+      if (updates.minPurchase) dbUpdates.min_purchase = updates.minPurchase;
+      if (updates.maxUses) dbUpdates.max_uses = updates.maxUses;
+      if (updates.productIds) dbUpdates.product_ids = updates.productIds;
+      if (updates.categoryIds) dbUpdates.category_ids = updates.categoryIds;
+      if (updates.customerIds) dbUpdates.customer_ids = updates.customerIds;
+      if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
+      dbUpdates.updated_at = new Date().toISOString();
+
+      const { data, error } = await supabase
+        .from('promotions')
+        .update(dbUpdates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, promotion: mapPromotion(data) };
+    } catch (e) {
+      console.error('Error updating promotion:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  deletePromotion: async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('promotions')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('Error deleting promotion:', e);
+      return { success: false, error: e };
     }
   },
 
