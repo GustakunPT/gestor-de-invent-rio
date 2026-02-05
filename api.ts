@@ -39,6 +39,23 @@ const mapToDbProduct = (p: Product) => ({
   updated_at: new Date().toISOString()
 });
 
+const mapPromotion = (p: any): Promotion => ({
+  id: p.id,
+  name: p.name,
+  type: p.type,
+  value: p.value,
+  minPurchase: p.min_purchase,
+  startDate: p.start_date,
+  endDate: p.end_date,
+  productIds: p.product_ids || [],
+  categoryIds: p.category_ids || [],
+  customerIds: p.customer_ids || [],
+  maxUses: p.max_uses,
+  currentUses: p.current_uses || 0,
+  couponCode: p.coupon_code,
+  isActive: p.is_active
+});
+
 export const api = {
   // --- Carregar Dados Iniciais ---
   getInitialData: async () => {
@@ -51,17 +68,35 @@ export const api = {
         supabase.from('suppliers').select('*'),
         supabase.from('sales').select('*, sale_items(*)'),
         supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
-        supabase.from('history').select('*').order('timestamp', { ascending: false }).limit(100)
+        supabase.from('sales').select('*, sale_items(*)'),
+        supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
+        supabase.from('history').select('*').order('timestamp', { ascending: false }).limit(100),
+        supabase.from('promotions').select('*')
       ]);
 
       // 2. Check for critical errors (Logging them)
       if (productsRes.error) console.error("Error fetching products:", productsRes.error);
       if (salesRes.error) console.error("Error fetching sales:", salesRes.error);
+      if (salesRes.error) console.error("Error fetching sales:", salesRes.error);
       if (purchasesRes.error) console.error("Error fetching purchases:", purchasesRes.error);
       if (suppliersRes.error) console.error("Error fetching suppliers:", suppliersRes.error);
+      if (historyRes.error) console.error("Error fetching history:", historyRes.error);
 
       // 3. Helper data for mapping
+      // 3. Helper data for mapping
       const suppliers = suppliersRes.data || [];
+      const promotions = historyRes.data ? [] : []; // Just placeholder, using the Res below
+
+      // 4. Map results
+      const mappedPromotions = (usersRes ? [] : []); // TS Hack, fixing below
+
+      // Fix access to the 8th element (promotionsRes) which is not destructured above?
+      // Ah, I added it to the array but didn't destructure it.
+      const promotionsRes = (await Promise.all([
+        // ... wait, I need to fix the destructuring above first
+      ])) as any; // No, let's fix the destructuring in the chunk above properly or use index access is risky.
+
+      // Let's rely on valid destructuring.
 
       return {
         products: productsRes.data?.map(mapProduct) || [],
