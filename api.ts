@@ -60,17 +60,24 @@ export const api = {
   // --- Carregar Dados Iniciais ---
   getInitialData: async () => {
     try {
-      // 1. Fetch data in parallel
-      const [productsRes, usersRes, customersRes, suppliersRes, salesRes, purchasesRes, historyRes, promotionsRes] = await Promise.all([
-        supabase.from('products').select('*'),
-        supabase.from('app_users').select('*'),
-        supabase.from('customers').select('*'),
-        supabase.from('suppliers').select('*'),
-        supabase.from('sales').select('*, sale_items(*)'),
-        supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
-        supabase.from('history').select('*').order('timestamp', { ascending: false }).limit(100),
-        supabase.from('promotions').select('*')
-      ]);
+      // 1. Fetch data in parallel with Timeout (5s)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Database Timeout')), 5000)
+      );
+
+      const [productsRes, usersRes, customersRes, suppliersRes, salesRes, purchasesRes, historyRes, promotionsRes] = await Promise.race([
+        Promise.all([
+          supabase.from('products').select('*'),
+          supabase.from('app_users').select('*'),
+          supabase.from('customers').select('*'),
+          supabase.from('suppliers').select('*'),
+          supabase.from('sales').select('*, sale_items(*)'),
+          supabase.from('purchase_orders').select('*, purchase_order_items(*)'),
+          supabase.from('history').select('*').order('timestamp', { ascending: false }).limit(100),
+          supabase.from('promotions').select('*')
+        ]),
+        timeoutPromise
+      ]) as any;
 
       // 2. Check for critical errors (Logging them)
       if (productsRes.error) console.error("Error fetching products:", productsRes.error);
