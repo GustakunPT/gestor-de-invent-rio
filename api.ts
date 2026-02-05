@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { Product, User, Customer, Sale, Supplier, PurchaseOrder, HistoryEntry } from './types';
+import { Product, User, Customer, Sale, Supplier, PurchaseOrder, HistoryEntry, Tenant, TenantSettings, Subscription } from './types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatDateTime } from './utils/dateUtils';
@@ -561,6 +561,242 @@ export const api = {
     } catch (e) {
       console.error(e);
       return { success: false, error: "Erro ao gerar PDF" };
+    }
+  },
+
+  // ============================================
+  // TENANT MANAGEMENT (MULTI-TENANCY)
+  // ============================================
+
+  // Get current user's tenant
+  getTenant: async (userId: string): Promise<Tenant | null> => {
+    try {
+      // 1. Get user's tenant_id
+      const { data: userData, error: userError } = await supabase
+        .from('app_users')
+        .select('tenant_id')
+        .eq('id', userId)
+        .single();
+
+      if (userError || !userData?.tenant_id) {
+        console.error('Error fetching user tenant:', userError);
+        return null;
+      }
+
+      // 2. Get tenant data
+      const { data: tenantData, error: tenantError } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('id', userData.tenant_id)
+        .single();
+
+      if (tenantError || !tenantData) {
+        console.error('Error fetching tenant:', tenantError);
+        return null;
+      }
+
+      // 3. Map to Tenant interface
+      return {
+        id: tenantData.id,
+        name: tenantData.name,
+        slug: tenantData.slug,
+        nif: tenantData.nif,
+        address: tenantData.address,
+        postalCode: tenantData.postal_code,
+        city: tenantData.city,
+        phone: tenantData.phone,
+        email: tenantData.email,
+        logoUrl: tenantData.logo_url,
+        settings: tenantData.settings || { taxRate: 23, currency: 'EUR', theme: 'light' },
+        plan: tenantData.plan,
+        maxUsers: tenantData.max_users,
+        maxProducts: tenantData.max_products,
+        isActive: tenantData.is_active,
+        createdAt: tenantData.created_at,
+        updatedAt: tenantData.updated_at
+      };
+    } catch (e) {
+      console.error('Unexpected error in getTenant:', e);
+      return null;
+    }
+  },
+
+  // Update tenant info (admin only)
+  updateTenant: async (tenantId: string, updates: Partial<Tenant>) => {
+    try {
+      const dbUpdates: any = {};
+
+      if (updates.name !== undefined) dbUpdates.name = updates.name;
+      if (updates.nif !== undefined) dbUpdates.nif = updates.nif;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.postalCode !== undefined) dbUpdates.postal_code = updates.postalCode;
+      if (updates.city !== undefined) dbUpdates.city = updates.city;
+      if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+      if (updates.email !== undefined) dbUpdates.email = updates.email;
+      if (updates.logoUrl !== undefined) dbUpdates.logo_url = updates.logoUrl;
+      if (updates.settings !== undefined) dbUpdates.settings = updates.settings;
+
+      const { error } = await supabase
+        .from('tenants')
+        .update(dbUpdates)
+        .eq('id', tenantId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('Error updating tenant:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  // Get tenant users (admin only)
+  getTenantUsers: async (tenantId: string): Promise<User[]> => {
+    try {
+      const { data, error } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.error('Error fetching tenant users:', e);
+      return [];
+    }
+  },
+
+  // Create new tenant (super admin only)
+  createTenant: async (tenant: Partial<Tenant>) => {
+    try {
+      const { data, error } = await supabase
+        .from('tenants')
+        .insert({
+          name: tenant.name,
+          slug: tenant.slug || tenant.name?.toLowerCase().replace(/\s+/g, '-'),
+          nif: tenant.nif,
+          address: tenant.address,
+          postal_code: tenant.postalCode,
+          city: tenant.city,
+          phone: tenant.phone,
+          email: tenant.email,
+          settings: tenant.settings || { taxRate: 23, currency: 'EUR', theme: 'light' },
+          plan: tenant.plan || 'starter',
+          max_users: tenant.maxUsers || 1,
+          max_products: tenant.maxProducts || 100
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create default subscription
+      await supabase.from('subscriptions').insert({
+        tenant_id: data.id,
+        plan: data.plan || 'starter',
+        status: 'active',
+        start_date: new Date().toISOString()
+      });
+
+      return { success: true, tenant: data };
+    } catch (e) {
+      console.error('Error creating tenant:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  // Assign user to tenant
+  assignUserToTenant: async (userId: string, tenantId: string, isTenantAdmin: boolean = false) => {
+    try {
+      const { error } = await supabase
+        .from('app_users')
+        .update({
+          tenant_id: tenantId,
+          is_tenant_admin: isTenantAdmin
+        })
+        .eq('id', userId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('Error assigning user to tenant:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  // --- SUBSCRIPTIONS ---
+
+  getSubscription: async (tenantId: string): Promise<Subscription | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') return null;
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        plan: data.plan,
+        status: data.status,
+        startDate: data.start_date,
+        endDate: data.end_date,
+        stripeCustomerId: data.stripe_customer_id,
+        stripeSubscriptionId: data.stripe_subscription_id,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    } catch (e) {
+      console.error('Error fetching subscription:', e);
+      return null;
+    }
+  },
+
+  createSubscription: async (subscription: Partial<Subscription>) => {
+    try {
+      const { data, error } = await supabase
+        .from('subscriptions')
+        .insert({
+          tenant_id: subscription.tenantId,
+          plan: subscription.plan,
+          status: subscription.status,
+          start_date: subscription.startDate,
+          end_date: subscription.endDate
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, subscription: data };
+    } catch (e) {
+      console.error('Error creating subscription:', e);
+      return { success: false, error: e };
+    }
+  },
+
+  updateSubscription: async (id: string, updates: Partial<Subscription>) => {
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          plan: updates.plan,
+          status: updates.status,
+          end_date: updates.endDate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (e) {
+      console.error('Error updating subscription:', e);
+      return { success: false, error: e };
     }
   }
 };

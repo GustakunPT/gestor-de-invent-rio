@@ -47,6 +47,7 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
   const [discountReason, setDiscountReason] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [appliedPromotion, setAppliedPromotion] = useState<Promotion | null>(null);
+  const [mbwayNumber, setMbwayNumber] = useState('');
 
   // --- CLIENTE ---
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
@@ -402,13 +403,21 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {[
                     { value: 'CASH', label: 'Dinheiro', icon: Banknote },
-                    { value: 'CARD', label: 'Cartão', icon: CreditCard },
+                    { value: 'CARD', label: 'Crédito', icon: CreditCard },
                     { value: 'MULTIBANCO', label: 'Multibanco', icon: Building2 },
                     { value: 'MBWAY', label: 'MBWay', icon: Smartphone },
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
-                      onClick={() => setPaymentMethod(value as PaymentMethod)}
+                      onClick={() => {
+                        setPaymentMethod(value as PaymentMethod);
+                        // Auto-fill MBWay number if available when selecting MBWAY
+                        if (value === 'MBWAY' && customerPhone) {
+                          setMbwayNumber(customerPhone);
+                        } else if (value === 'MBWAY') {
+                          setMbwayNumber('');
+                        }
+                      }}
                       className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${paymentMethod === value
                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                         : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 text-gray-500'
@@ -419,6 +428,33 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
                     </button>
                   ))}
                 </div>
+
+                {/* MBWay Specific Input */}
+                {paymentMethod === 'MBWAY' && (
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-800 animate-fadeIn">
+                    <label className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-1 block">Número de Telemóvel MBWay</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nº telemóvel"
+                        value={mbwayNumber}
+                        onChange={(e) => setMbwayNumber(e.target.value)}
+                        className="flex-1 border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                      <button className="bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-blue-700">
+                        Enviar Pedido
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Credit Card Terminal Message */}
+                {paymentMethod === 'CARD' && (
+                  <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-200 dark:border-yellow-800 flex items-center gap-3 animate-fadeIn">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm text-yellow-700 dark:text-yellow-400 font-medium">Aguardar pagamento no terminal...</span>
+                  </div>
+                )}
               </div>
             )}
 

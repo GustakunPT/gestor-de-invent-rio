@@ -1,6 +1,9 @@
 import React from 'react';
-import { Settings, Save, Building, Coins } from 'lucide-react';
-import { AppSettings } from '../types';
+import { Settings, Save, Building, Coins, FileSpreadsheet, Download } from 'lucide-react';
+import { AppSettings, Sale, Product, Customer } from '../types';
+import { api } from '../api';
+import { generateSaftXml } from '../utils/saftGenerator';
+import { useTenant } from '../contexts/TenantContext';
 
 interface SettingsManagerProps {
   settings: AppSettings;
@@ -10,6 +13,50 @@ interface SettingsManagerProps {
 export const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSave }) => {
   const [formData, setFormData] = React.useState<AppSettings>(settings);
   const [showSuccess, setShowSuccess] = React.useState(false);
+  const { tenant } = useTenant();
+
+  // SAFT State
+  const [saftMonth, setSaftMonth] = React.useState(new Date().getMonth() + 1);
+  const [saftYear, setSaftYear] = React.useState(new Date().getFullYear());
+
+  const handleGenerateSaft = async () => {
+    if (!tenant) return;
+
+    try {
+      // 1. Calculate Period
+      const startDate = new Date(saftYear, saftMonth - 1, 1);
+      const endDate = new Date(saftYear, saftMonth, 0); // Last day of month
+
+      // 2. Fetch all necessary data
+      // Note: In a real app we might need pagination or specific date-range queries
+      // For this implementation we are fetching initialData which is already loaded
+      // Ideally we would have api.getSalesByDateRange(start, end)
+      const data = await api.getInitialData();
+
+      // 3. Generate XML
+      const xmlContent = generateSaftXml({
+        company: tenant,
+        sales: data.sales || [],
+        products: data.products || [],
+        customers: data.customers || [],
+        startDate,
+        endDate,
+        fiscalYear: saftYear
+      });
+
+      // 4. Download File
+      const blob = new Blob([xmlContent], { type: 'text/xml' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `SAFT_${tenant.nif || '999'}_${saftYear}_${saftMonth.toString().padStart(2, '0')}.xml`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+
+    } catch (error) {
+      console.error('Error generating SAFT:', error);
+      alert('Erro ao gerar ficheiro SAFT. Verifique a consola para detalhes.');
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -35,7 +82,7 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSa
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          
+
           {/* Tax Settings */}
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
@@ -130,6 +177,65 @@ export const SettingsManager: React.FC<SettingsManagerProps> = ({ settings, onSa
               </div>
             </div>
           </div>
+
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-6"></div>
+
+          {/* SAFT Export Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-blue-500" />
+              Exportação Legal (SAFT-PT)
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Gere o ficheiro XML obrigatório para a Autoridade Tributária. O ficheiro deve ser submetido até ao dia 5 do mês seguinte.
+            </p>
+
+            <div className="flex flex-wrap items-end gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Mês
+                </label>
+                <select
+                  value={saftMonth}
+                  onChange={(e) => setSaftMonth(parseInt(e.target.value))}
+                  className="block w-40 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2 border"
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>
+                      {new Date(0, i).toLocaleString('pt-PT', { month: 'long' })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Ano
+                </label>
+                <select
+                  value={saftYear}
+                  onChange={(e) => setSaftYear(parseInt(e.target.value))}
+                  className="block w-24 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2 border"
+                >
+                  {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGenerateSaft}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                title="Descarregar XML SAFT-PT 1.04"
+              >
+                <Download className="w-4 h-4" />
+                Gerar SAFT
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-6"></div>
 
           <div className="flex justify-end pt-4">
             <button

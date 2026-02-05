@@ -176,6 +176,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, sal
                       {new Intl.NumberFormat('pt-PT', { style: 'currency', currency: settings.currency }).format(taxAmount)}
                     </span>
                   </div>
+                  {sale.discountAmount && sale.discountAmount > 0 && (
+                    <div className="flex justify-between py-2 border-b border-gray-100 text-green-600">
+                      <span className="flex flex-col">
+                        <span>Desconto</span>
+                        {sale.discountReason && <span className="text-xs text-green-500">{sale.discountReason}</span>}
+                      </span>
+                      <span className="font-medium">
+                        -{new Intl.NumberFormat('pt-PT', { style: 'currency', currency: settings.currency }).format(sale.discountAmount)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between py-4">
                     <span className="text-lg font-bold text-gray-900">Total</span>
                     <span className="text-lg font-bold text-blue-600">

@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import {
     LayoutDashboard, BarChart2, ShoppingCart, Users, Database,
     Package, Truck, Gift, History, User as UserIcon, Settings,
-    ChevronLeft, ChevronRight, LogOut, Sun, Moon
+    ChevronLeft, ChevronRight, LogOut, Sun, Moon, Building2
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ['dashboard', 'sales_stats', 'sales', 'customers', 'list'].includes(t.id)
     );
     const adminTabs = visibleTabs.filter(t =>
-        ['purchases', 'suppliers', 'promotions', 'history', 'users', 'settings'].includes(t.id)
+        ['purchases', 'suppliers', 'promotions', 'history', 'users', 'tenants', 'settings'].includes(t.id)
     );
 
     return (

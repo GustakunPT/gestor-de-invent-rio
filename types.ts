@@ -16,6 +16,52 @@ export type SaleStatus = 'COMPLETED' | 'PENDING' | 'CANCELLED' | 'SHIPPED';
 export type UserRole = 'ADMIN' | 'STAFF';
 export type CustomerType = 'INDIVIDUAL' | 'COMPANY';
 export type PurchaseOrderStatus = 'PENDENTE' | 'RECEBIDO' | 'CANCELADO';
+export type SubscriptionPlan = 'starter' | 'professional' | 'enterprise';
+export type SubscriptionStatus = 'active' | 'past_due' | 'canceled' | 'trial';
+
+// --- TENANT (MULTI-TENANCY) ---
+
+export interface TenantSettings {
+  taxRate: number;
+  currency: string;
+  theme: 'light' | 'dark';
+  lowStockAlertEnabled?: boolean;
+  expiryAlertDays?: number;
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  nif?: string;
+  address?: string;
+  postalCode?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  logoUrl?: string;
+  settings: TenantSettings;
+  plan: SubscriptionPlan;
+  maxUsers: number;
+  maxProducts: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  subscription?: Subscription;
+}
+
+export interface Subscription {
+  id: string;
+  tenantId: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  startDate: string;
+  endDate?: string;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
 
 // --- PRODUTO ---
 

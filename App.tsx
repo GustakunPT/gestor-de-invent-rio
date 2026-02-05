@@ -6,7 +6,7 @@ import {
   Package, Plus, Search, LayoutDashboard, Database, TrendingUp,
   Download, History, ShoppingCart, Truck, Scan, Barcode,
   Settings as SettingsIcon, Sun, Moon, User as UserIcon,
-  LogOut, Users, Filter, Loader, BarChart2, Gift, Bell
+  LogOut, Users, Filter, Loader, BarChart2, Gift, Bell, Building2
 } from 'lucide-react';
 
 // Importa as definições de Tipos (TypeScript) para garantir segurança nos dados
@@ -33,6 +33,8 @@ import { AlertsPanel } from './components/AlertsPanel';
 import { PromotionManager } from './components/PromotionManager';
 import { CommandPalette } from './components/CommandPalette';
 import { Sidebar } from './components/Sidebar';
+import { TenantManager } from './components/TenantManager';
+import { TenantProvider, useTenant } from './contexts/TenantContext';
 
 // Importa hooks personalizados
 import { useDebounce } from './hooks/useDebounce';
@@ -73,6 +75,8 @@ const App: React.FC = () => {
   // --- ESTADO DA INTERFACE (UI STATE) ---
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Tenant context will be used after TenantProvider wraps the app
   const [isLoading, setIsLoading] = useState(false);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -80,7 +84,7 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<ModalType>(ModalType.NONE);
   const [currentProduct, setCurrentProduct] = useState<Product | undefined>(undefined);
-  const [view, setView] = useState<'dashboard' | 'sales_stats' | 'list' | 'history' | 'sales' | 'customers' | 'suppliers' | 'purchases' | 'settings' | 'users' | 'promotions'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'sales_stats' | 'list' | 'history' | 'sales' | 'customers' | 'suppliers' | 'purchases' | 'settings' | 'users' | 'promotions' | 'tenants'>('dashboard');
 
   // --- ESTADO DOS FILTROS DO DASHBOARD ---
   const [dashCategoryFilter, setDashCategoryFilter] = useState<string>('all');
@@ -228,6 +232,7 @@ const App: React.FC = () => {
       { id: 'promotions', label: 'Promoções', icon: Gift },
       { id: 'history', label: 'Histórico', icon: History },
       { id: 'users', label: 'Users', icon: UserIcon },
+      { id: 'tenants', label: 'Empresas', icon: Building2 },
       { id: 'settings', label: 'Config', icon: SettingsIcon },
     ];
 
@@ -755,6 +760,7 @@ const App: React.FC = () => {
           {view === 'history' && currentUser.role === 'ADMIN' && <HistoryLog history={history} onImport={handleImportHistory} />}
           {view === 'settings' && currentUser.role === 'ADMIN' && <SettingsManager settings={settings} onSave={setSettings} />}
           {view === 'promotions' && currentUser.role === 'ADMIN' && <PromotionManager promotions={promotions} onAdd={handleAddPromotion} onEdit={handleEditPromotion} onDelete={handleDeletePromotion} />}
+          {view === 'tenants' && currentUser.role === 'ADMIN' && <TenantManager currentTenantId={currentUser.id} isSuperAdmin={currentUser.role === 'ADMIN'} />}
         </main>
 
         {isModalOpen && <ProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveProduct} initialData={currentProduct} type={modalType} suppliers={suppliers} />}
