@@ -219,36 +219,6 @@ export const TenantManager: React.FC<TenantManagerProps> = ({
         }
     };
 
-    const handleEditSubscription = () => {
-        if (!currentSubscription) return;
-        setSubFormData({
-            plan: currentSubscription.plan,
-            status: currentSubscription.status,
-            endDate: currentSubscription.endDate ? new Date(currentSubscription.endDate).toISOString().split('T')[0] : ''
-        });
-        setIsEditingSubscription(true);
-    };
-
-    const handleSaveSubscription = async () => {
-        if (!currentSubscription) return;
-        try {
-            const result = await api.updateSubscription(currentSubscription.id, {
-                plan: subFormData.plan,
-                status: subFormData.status,
-                endDate: subFormData.endDate ? new Date(subFormData.endDate).toISOString() : undefined
-            });
-
-            if (result.success) {
-                await loadSubscription(currentSubscription.tenantId);
-                setIsEditingSubscription(false);
-            } else {
-                setError('Erro ao atualizar subscrição');
-            }
-        } catch (e) {
-            setError('Erro ao guardar subscrição');
-        }
-    };
-
     if (isLoading) {
         return (
             <div className="flex items-center justify-center p-12">
@@ -614,8 +584,8 @@ export const TenantManager: React.FC<TenantManagerProps> = ({
                                             <div>
                                                 <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider mb-1">STATUS</p>
                                                 <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${currentSubscription.status === 'active' ? 'bg-green-100 text-green-700' :
-                                                        currentSubscription.status === 'trial' ? 'bg-orange-100 text-orange-700' :
-                                                            'bg-red-100 text-red-700'
+                                                    currentSubscription.status === 'trial' ? 'bg-orange-100 text-orange-700' :
+                                                        'bg-red-100 text-red-700'
                                                     }`}>
                                                     {currentSubscription.status.toUpperCase()}
                                                 </span>
