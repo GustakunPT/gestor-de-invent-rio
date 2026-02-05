@@ -822,13 +822,13 @@ const App: React.FC = () => {
           )}
           {view === 'sales' && <SalesManager products={products} sales={sales} customers={customers} promotions={promotions} onNewSale={handleNewSale} settings={settings} />}
           {view === 'customers' && <CustomerManager customers={customers} onAddCustomer={handleAddCustomer} onEditCustomer={handleEditCustomer} onDeleteCustomer={handleDeleteCustomer} userRole={currentUser.role} />}
-          {view === 'purchases' && currentUser.role === 'ADMIN' && <PurchaseOrderManager products={products} suppliers={suppliers} purchaseOrders={purchaseOrders} onCreateOrder={handleCreatePO} onReceiveOrder={handleReceivePO} />}
-          {view === 'suppliers' && currentUser.role === 'ADMIN' && <SupplierManager suppliers={suppliers} onAddSupplier={handleAddSupplier} onEditSupplier={handleEditSupplier} onDeleteSupplier={handleDeleteSupplier} />}
-          {view === 'users' && currentUser.role === 'ADMIN' && <UserManager users={users} currentUser={currentUser} onAddUser={handleAddUser} onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} />}
-          {view === 'history' && currentUser.role === 'ADMIN' && <HistoryLog history={history} onImport={handleImportHistory} />}
-          {view === 'settings' && currentUser.role === 'ADMIN' && <SettingsManager settings={settings} onSave={setSettings} />}
-          {view === 'promotions' && currentUser.role === 'ADMIN' && <PromotionManager promotions={promotions} onAdd={handleAddPromotion} onEdit={handleEditPromotion} onDelete={handleDeletePromotion} />}
-          {view === 'tenants' && currentUser.role === 'ADMIN' && <TenantManager currentTenantId={currentUser.id} isSuperAdmin={currentUser.role === 'ADMIN'} />}
+          {view === 'purchases' && (currentUser.role === 'ADMIN' || currentUser.role === 'DEVELOPER') && <PurchaseOrderManager products={products} suppliers={suppliers} purchaseOrders={purchaseOrders} onCreateOrder={handleCreatePO} onReceiveOrder={handleReceivePO} />}
+          {view === 'suppliers' && (currentUser.role === 'ADMIN' || currentUser.role === 'DEVELOPER') && <SupplierManager suppliers={suppliers} onAddSupplier={handleAddSupplier} onEditSupplier={handleEditSupplier} onDeleteSupplier={handleDeleteSupplier} />}
+          {view === 'users' && (currentUser.role === 'ADMIN' || currentUser.role === 'DEVELOPER') && <UserManager users={users} currentUser={currentUser} onAddUser={handleAddUser} onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} />}
+          {view === 'history' && (currentUser.role === 'ADMIN' || currentUser.role === 'DEVELOPER') && <HistoryLog history={history} onImport={handleImportHistory} />}
+          {view === 'settings' && (currentUser.role === 'ADMIN' || currentUser.role === 'DEVELOPER') && <SettingsManager settings={settings} onSave={setSettings} />}
+          {view === 'promotions' && (currentUser.role === 'ADMIN' || currentUser.role === 'DEVELOPER') && <PromotionManager promotions={promotions} onAdd={handleAddPromotion} onEdit={handleEditPromotion} onDelete={handleDeletePromotion} />}
+          {view === 'tenants' && currentUser.role === 'DEVELOPER' && <TenantManager currentTenantId={currentUser.id} isSuperAdmin={currentUser.role === 'ADMIN'} />}
         </main>
 
         {isModalOpen && <ProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveProduct} initialData={currentProduct} type={modalType} suppliers={suppliers} />}
