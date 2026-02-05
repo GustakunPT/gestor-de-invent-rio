@@ -40,6 +40,7 @@ export interface Tenant {
   phone?: string;
   email?: string;
   logoUrl?: string;
+  ownerId?: string;
   settings: TenantSettings;
   plan: SubscriptionPlan;
   maxUsers: number;
@@ -128,6 +129,7 @@ export interface User {
   isActive?: boolean;
   lastLogin?: string;
   createdAt?: string;
+  tenant_id?: string;
 }
 
 // --- CLIENTES ---

@@ -56,12 +56,41 @@ export const authService = {
     /**
      * Obter utilizador atual da sessão (se existir)
      */
+    /**
+     * Obter utilizador atual da sessão (se existir)
+     */
     getCurrentUser: async (): Promise<User | null> => {
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user) {
-            return mapAuthToAppUser(data.session.user);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) return null;
+
+            // Fetch full profile from app_users to get tenant_id and role
+            const { data: profile } = await supabase
+                .from('app_users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profile) {
+                return {
+                    id: profile.id,
+                    email: profile.email,
+                    name: profile.name,
+                    role: profile.role,
+                    tenant_id: profile.tenant_id,
+                    isActive: true,
+                    createdAt: profile.created_at,
+                    lastLogin: new Date().toISOString(),
+                    password: ''
+                };
+            }
+
+            // Fallback for immediate sign-up state (unlikely but safe)
+            return mapAuthToAppUser(session.user);
+        } catch (e) {
+            console.error('Auth check error:', e);
+            return null;
         }
-        return null;
     },
 
     /**
@@ -69,6 +98,30 @@ export const authService = {
      */
     onAuthStateChange: (callback: (user: User | null) => void) => {
         const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
+                // Fetch profile on auth change too
+                const { data: profile } = await supabase
+                    .from('app_users')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (profile) {
+                    callback({
+                        id: profile.id,
+                        email: profile.email,
+                        name: profile.name,
+                        role: profile.role,
+                        tenant_id: profile.tenant_id,
+                        isActive: true,
+                        createdAt: profile.created_at,
+                        lastLogin: new Date().toISOString(),
+                        password: ''
+                    });
+                    return;
+                }
+            }
+            // If no session or profile fetch fails
             const user = session?.user ? mapAuthToAppUser(session.user) : null;
             callback(user);
         });
