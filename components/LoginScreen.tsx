@@ -20,8 +20,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     setIsLoading(true);
 
     try {
-      // Login real via Supabase Auth
-      const result = await authService.signIn(email, password);
+      // Create a timeout promise to prevent infinite loading
+      const timeoutPromise = new Promise<{ success: boolean; error?: string; user?: any }>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: O servidor demorou muito a responder. Verifique a sua conexão ou contacte o suporte.')), 10000)
+      );
+
+      // Login real via Supabase Auth with Race Condition
+      const result = await Promise.race([
+        authService.signIn(email, password),
+        timeoutPromise
+      ]);
 
       if (result.success && result.user) {
         onLogin(result.user);
@@ -35,8 +43,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           setError(result.error || 'Erro ao iniciar sessão.');
         }
       }
-    } catch (err) {
-      setError('Erro de conexão. Tente novamente.');
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || 'Erro de conexão.');
     } finally {
       setIsLoading(false);
     }
