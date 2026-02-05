@@ -48,7 +48,10 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ currentUser,
             });
 
             if (!tenantRes.success || !tenantRes.tenant) {
-                throw new Error(tenantRes.error as string || 'Falha ao criar empresa.');
+                // Extract meaningful error message from Supabase error object
+                const supabaseError = tenantRes.error as any;
+                const errMsg = supabaseError?.message || supabaseError?.error_description || JSON.stringify(supabaseError) || 'Falha ao criar empresa.';
+                throw new Error(errMsg);
             }
 
             const newTenant = tenantRes.tenant;
@@ -59,7 +62,8 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ currentUser,
             const assignRes = await api.assignUserToTenant(currentUser.id, newTenant.id, true);
 
             if (!assignRes.success) {
-                throw new Error('Falha ao associar utilizador à empresa.');
+                const assignErr = assignRes.error as any;
+                throw new Error(assignErr?.message || 'Falha ao associar utilizador à empresa.');
             }
 
             // 3. Success!
@@ -70,7 +74,9 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ currentUser,
 
         } catch (err: any) {
             console.error('Onboarding Error:', err);
-            setError(typeof err === 'string' ? err : 'Erro desconhecido ao configurar empresa.');
+            // Handle Error objects properly
+            const displayError = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Erro desconhecido ao configurar empresa.');
+            setError(displayError);
         } finally {
             setIsLoading(false);
         }
