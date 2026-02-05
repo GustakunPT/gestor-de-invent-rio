@@ -155,15 +155,10 @@ const App: React.FC = () => {
   }, [isDataLoaded]);
 
   // Handle Onboarding Completion
-  const handleOnboardingComplete = async () => {
-    // Reload user to get the new tenant_id
-    if (currentUser) {
-      const updatedUser = await authService.getCurrentUser();
-      if (updatedUser) {
-        setCurrentUser(updatedUser);
-        loadData();
-      }
-    }
+  // Handle Onboarding Completion
+  const handleOnboardingComplete = () => {
+    // Force reload to ensure fresh auth state and data
+    window.location.reload();
   };
 
   // 2. Auth Guard & Onboarding Check
