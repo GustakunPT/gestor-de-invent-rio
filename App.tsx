@@ -160,30 +160,7 @@ const App: React.FC = () => {
     window.location.reload();
   };
 
-  // 2. Auth Guard
-  if (!currentUser) return <LoginScreen onLogin={setCurrentUser} />;
-
-  // 2.1. Access Control Check
-  // If user has no tenant AND is not a Developer, they are in limbo (should be invited)
-  if (!currentUser.tenant_id && currentUser.role !== 'DEVELOPER') {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-yellow-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Conta Pendente</h2>
-          <p className="text-gray-500 mb-6">A sua conta não está associada a nenhuma empresa. Por favor, peça ao seu administrador para lhe enviar um convite.</p>
-          <button
-            onClick={() => authService.signOut().then(() => setCurrentUser(null))}
-            className="text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Voltar ao Login
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // (Auth Guards moved to render section to avoid Hook Violations)
 
   // Developer Dashboard (Create Tenant flow might be part of Tenants tab now)
   // We don't force OnboardingScreen anymore based on null tenant_id alone for Developers, 
@@ -486,6 +463,27 @@ const App: React.FC = () => {
   // Login
   if (!currentUser) {
     return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  // Access Control Check (Moved here to avoid Hook Violations)
+  if (!currentUser.tenant_id && currentUser.role !== 'DEVELOPER') {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-yellow-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Conta Pendente</h2>
+          <p className="text-gray-500 mb-6">A sua conta não está associada a nenhuma empresa. Por favor, peça ao seu administrador para lhe enviar um convite.</p>
+          <button
+            onClick={() => authService.signOut().then(() => setCurrentUser(null))}
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Voltar ao Login
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // App Principal
