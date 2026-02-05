@@ -3,12 +3,14 @@
 // ============================================
 
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard, RotateCcw, ScanLine, Banknote, Smartphone, Building2, Send, Receipt } from 'lucide-react';
+import { ShoppingCart, User, Plus, Trash2, FileText, Check, AlertCircle, AlertTriangle, Search, X, CreditCard, RotateCcw, ScanLine, Banknote, Smartphone, Building2, Send, Receipt, Store, Truck, MapPin } from 'lucide-react';
 import { Product, Sale, SaleItem, AppSettings, Customer, PaymentMethod, Promotion } from '../types';
 import { InvoiceModal } from './InvoiceModal';
 import { isValidNIF, isValidEmail } from '../validators';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
 import { formatDateTime } from '../utils/dateUtils';
+
+type DeliveryType = 'STORE' | 'SHIPPING';
 
 // Definição das props recebidas pelo componente
 interface SalesManagerProps {
@@ -54,6 +56,14 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerPostalCode, setCustomerPostalCode] = useState('');
+
+  // --- ENTREGA ---
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>('STORE');
+  const [shippingAddress, setShippingAddress] = useState('');
+  const [shippingPostalCode, setShippingPostalCode] = useState('');
+  const [shippingCity, setShippingCity] = useState('');
+  const [shippingMethod, setShippingMethod] = useState('');
+  const [shippingCost, setShippingCost] = useState(0);
 
   // --- UI AUXILIAR ---
   const [viewInvoice, setViewInvoice] = useState<Sale | null>(null);
@@ -191,7 +201,8 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
 
     const subtotal = cart.reduce((acc, item) => acc + item.total, 0);
     const finalDiscount = Math.min(discountAmount, subtotal);
-    const totalAmount = subtotal - finalDiscount;
+    const finalShippingCost = deliveryType === 'SHIPPING' ? shippingCost : 0;
+    const totalAmount = subtotal - finalDiscount + finalShippingCost;
 
     const profit = cart.reduce((acc, item) => {
       const product = products.find(p => p.id === item.productId);
@@ -213,11 +224,18 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
       subtotal,
       paymentMethod,
       paymentStatus: 'PAID',
-      status: 'COMPLETED',
+      status: deliveryType === 'SHIPPING' ? 'PENDING' : 'COMPLETED',
       discountAmount: finalDiscount,
       discountReason,
       profit,
-      userId: '' // Preenchido no App.tsx
+      userId: '', // Preenchido no App.tsx
+      // Dados de entrega
+      deliveryType,
+      shippingAddress: deliveryType === 'SHIPPING' ? shippingAddress.trim() : undefined,
+      shippingPostalCode: deliveryType === 'SHIPPING' ? shippingPostalCode.trim() : undefined,
+      shippingCity: deliveryType === 'SHIPPING' ? shippingCity.trim() : undefined,
+      shippingMethod: deliveryType === 'SHIPPING' ? shippingMethod : undefined,
+      shippingCost: deliveryType === 'SHIPPING' ? finalShippingCost : undefined
     };
 
     onNewSale(newSale);
@@ -227,6 +245,15 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
     handleClearCustomer();
     setPaymentMethod('CASH');
     setDiscountAmount(0);
+    setDiscountReason('');
+    setCouponCode('');
+    setAppliedPromotion(null);
+    setDeliveryType('STORE');
+    setShippingAddress('');
+    setShippingPostalCode('');
+    setShippingCity('');
+    setShippingMethod('');
+    setShippingCost(0);
     setViewInvoice(newSale);
   };
 
@@ -395,9 +422,200 @@ export const SalesManager: React.FC<SalesManagerProps> = ({
               </div>
             )}
 
+            {/* Delivery Type Selector */}
+            {cart.length > 0 && (
+              <div className="pt-4 border-t dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Tipo de Entrega</label>
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  <button
+                    onClick={() => setDeliveryType('STORE')}
+                    className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${deliveryType === 'STORE'
+                      ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-600'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 text-gray-500'
+                      }`}
+                  >
+                    <Store className="w-5 h-5" />
+                    <span className="text-sm font-medium">Loja</span>
+                  </button>
+                  <button
+                    onClick={() => setDeliveryType('SHIPPING')}
+                    className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 transition-all ${deliveryType === 'SHIPPING'
+                      ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-600'
+                      : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 text-gray-500'
+                      }`}
+                  >
+                    <Truck className="w-5 h-5" />
+                    <span className="text-sm font-medium">Envio</span>
+                  </button>
+                </div>
+
+                {/* Shipping Details */}
+                {deliveryType === 'SHIPPING' && (
+                  <div className="space-y-3 p-3 bg-orange-50 dark:bg-orange-900/10 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 text-sm font-medium">
+                      <MapPin className="w-4 h-4" />
+                      <span>Morada de Envio</span>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Morada completa"
+                      value={shippingAddress}
+                      onChange={(e) => setShippingAddress(e.target.value)}
+                      className="w-full border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Código Postal"
+                        value={shippingPostalCode}
+                        onChange={(e) => setShippingPostalCode(e.target.value)}
+                        className="border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Cidade"
+                        value={shippingCity}
+                        onChange={(e) => setShippingCity(e.target.value)}
+                        className="border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={shippingMethod}
+                        onChange={(e) => setShippingMethod(e.target.value)}
+                        className="border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      >
+                        <option value="">Transportadora</option>
+                        <option value="CTT">CTT</option>
+                        <option value="CTT_EXPRESSO">CTT Expresso</option>
+                        <option value="DPD">DPD</option>
+                        <option value="GLS">GLS</option>
+                        <option value="NACEX">Nacex</option>
+                      </select>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          placeholder="Custo envio"
+                          min="0"
+                          step="0.01"
+                          value={shippingCost || ''}
+                          onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)}
+                          className="w-full border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white pr-6"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Promo Code Section */}
+            {cart.length > 0 && (
+              <div className="pt-4 border-t dark:border-gray-700">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Código Promocional</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Introduzir código..."
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    disabled={!!appliedPromotion}
+                    className="flex-1 border p-2 rounded text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white uppercase"
+                  />
+                  {!appliedPromotion ? (
+                    <button
+                      onClick={() => {
+                        const promo = promotions.find(p => p.couponCode === couponCode && p.isActive);
+                        if (!promo) {
+                          alert('Código inválido ou expirado.');
+                          return;
+                        }
+                        const now = new Date();
+                        if (new Date(promo.startDate) > now || new Date(promo.endDate) < now) {
+                          alert('Promoção fora de validade.');
+                          return;
+                        }
+                        if (promo.maxUses && promo.currentUses >= promo.maxUses) {
+                          alert('Limite de usos atingido.');
+                          return;
+                        }
+
+                        // Calcular desconto
+                        const currentCartTotal = cart.reduce((acc, item) => acc + item.total, 0);
+                        let discount = 0;
+                        if (promo.type === 'PERCENTAGE') {
+                          discount = (currentCartTotal * promo.value) / 100;
+                        } else if (promo.type === 'FIXED') {
+                          discount = promo.value;
+                        }
+                        // Limitar ao total
+                        if (discount > currentCartTotal) discount = currentCartTotal;
+
+                        setAppliedPromotion(promo);
+                        setDiscountAmount(discount);
+                        setDiscountReason(`Cupão: ${promo.name}`);
+                        // alert('Cupão aplicado!');
+                      }}
+                      disabled={!couponCode}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Aplicar
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setAppliedPromotion(null);
+                        setDiscountAmount(0);
+                        setDiscountReason('');
+                        setCouponCode('');
+                      }}
+                      className="px-4 py-2 bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-200"
+                    >
+                      Remover
+                    </button>
+                  )}
+                </div>
+                {appliedPromotion && (
+                  <div className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                    <Check className="w-4 h-4" />
+                    <span>Promoção <b>{appliedPromotion.name}</b> aplicada (-{discountAmount.toFixed(2)}€)</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+
             <div className="pt-4 border-t dark:border-gray-700">
-              <div className="flex justify-between text-xl font-bold mb-4 dark:text-white"><span>Total</span><span>{cartTotal.toFixed(2)}€</span></div>
-              <button onClick={handleFinalizeSale} disabled={cart.length === 0} className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium">Finalizar Venda</button>
+              {deliveryType === 'SHIPPING' && shippingCost > 0 && (
+                <div className="flex justify-between text-sm text-gray-500 mb-1">
+                  <span>Subtotal</span>
+                  <span>{cartTotal.toFixed(2)}€</span>
+                </div>
+              )}
+              {deliveryType === 'SHIPPING' && shippingCost > 0 && (
+                <div className="flex justify-between text-sm text-gray-500 mb-2">
+                  <span>Envio</span>
+                  <span>{shippingCost.toFixed(2)}€</span>
+                </div>
+              )}
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600 mb-2 font-medium">
+                  <span>Desconto</span>
+                  <span>-{discountAmount.toFixed(2)}€</span>
+                </div>
+              )}
+              <div className="flex justify-between text-xl font-bold mb-4 dark:text-white">
+                <span>Total</span>
+                <span>{(cartTotal + (deliveryType === 'SHIPPING' ? shippingCost : 0) - discountAmount).toFixed(2)}€</span>
+              </div>
+              <button
+                onClick={handleFinalizeSale}
+                disabled={cart.length === 0 || (deliveryType === 'SHIPPING' && (!shippingAddress || !shippingCity))}
+                className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+              >
+                {deliveryType === 'SHIPPING' ? <Truck className="w-5 h-5" /> : <Check className="w-5 h-5" />}
+                {deliveryType === 'SHIPPING' ? 'Finalizar e Preparar Envio' : 'Finalizar Venda'}
+              </button>
             </div>
           </div>
         </div>

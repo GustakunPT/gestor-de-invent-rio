@@ -69,11 +69,35 @@ export const api = {
         customers: customersRes.data?.map((c: any) => ({ ...c, postalCode: c.postal_code })) || [],
 
         sales: salesRes.data?.map((s: any) => ({
-          ...s,
+          id: s.id,
+          date: s.date,
           customerName: s.customer_name,
           customerNif: s.customer_nif,
+          customerEmail: s.customer_email,
+          customerPhone: s.customer_phone,
+          customerAddress: s.customer_address,
+          customerPostalCode: s.customer_postal_code,
           totalAmount: Number(s.total_amount),
           userId: s.user_id,
+          // Pagamento
+          paymentMethod: s.payment_method,
+          paymentStatus: s.payment_status,
+          status: s.status,
+          discountAmount: Number(s.discount_amount || 0),
+          discountReason: s.discount_reason,
+          subtotal: Number(s.subtotal || s.total_amount),
+          taxAmount: Number(s.tax_amount || 0),
+          profit: Number(s.profit || 0),
+          notes: s.notes,
+          // Entrega
+          deliveryType: s.delivery_type || 'STORE',
+          shippingAddress: s.shipping_address,
+          shippingPostalCode: s.shipping_postal_code,
+          shippingCity: s.shipping_city,
+          shippingMethod: s.shipping_method,
+          shippingCost: Number(s.shipping_cost || 0),
+          trackingNumber: s.tracking_number,
+          // Items
           items: s.sale_items?.map((i: any) => ({
             productId: i.product_id,
             productName: i.product_name,
@@ -162,7 +186,7 @@ export const api = {
       date: new Date().toISOString(),
       total_amount: sale.totalAmount,
       user_id: sale.userId,
-      // items: sale.items // REMOVED
+      // Pagamento
       payment_method: sale.paymentMethod,
       payment_status: sale.paymentStatus || 'PAID',
       status: sale.status || 'COMPLETED',
@@ -172,7 +196,13 @@ export const api = {
       tax_amount: sale.taxAmount,
       profit: sale.profit,
       notes: sale.notes,
+      // Entrega
+      delivery_type: sale.deliveryType || 'STORE',
+      shipping_address: sale.shippingAddress,
+      shipping_postal_code: sale.shippingPostalCode,
+      shipping_city: sale.shippingCity,
       shipping_method: sale.shippingMethod,
+      shipping_cost: sale.shippingCost,
       tracking_number: sale.trackingNumber
     };
 
@@ -332,9 +362,18 @@ export const api = {
   },
 
   // --- PDF Local ---
-  generateInvoicePDF: async (sale: Sale) => {
+  generateInvoicePDF: async (sale: Sale, settings?: { companyName: string; companyAddress: string; companyNif: string; taxRate: number; currency: string }) => {
     try {
       const doc = new jsPDF();
+
+      // Default settings if not provided
+      const company = settings || {
+        companyName: 'Empresa Demo, Lda',
+        companyAddress: 'Rua da Inovação, 123, 1000-001 Lisboa',
+        companyNif: '500123456',
+        taxRate: 23,
+        currency: 'EUR'
+      };
 
       // Helper for payment method label
       const getPaymentLabel = (method: string | undefined): string => {
@@ -347,37 +386,173 @@ export const api = {
         }
       };
 
-      doc.setFontSize(18);
-      doc.text("FATURA / RECIBO", 14, 20);
+      // Colors
+      const primaryBlue = [37, 99, 235]; // #2563eb
+      const darkGray = [31, 41, 55];     // #1f2937
+      const mediumGray = [107, 114, 128]; // #6b7280
+      const lightGray = [229, 231, 235]; // #e5e7eb
+
+      // --- HEADER ---
+      // Left: FATURA
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.text("FATURA", 14, 25);
 
       doc.setFontSize(10);
-      doc.text(`Fatura Nº: ${sale.id}`, 14, 30);
-      doc.text(`Data: ${formatDateTime(new Date())}`, 14, 35);
-      doc.text(`Pagamento: ${getPaymentLabel(sale.paymentMethod)}`, 14, 40);
-
-      doc.text("Cliente:", 14, 50);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${sale.customerName}`, 14, 55);
       doc.setFont("helvetica", "normal");
-      if (sale.customerNif) doc.text(`NIF: ${sale.customerNif}`, 14, 60);
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text(`Ref: ${sale.id}`, 14, 32);
 
+      // Right: Company Info
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.text(company.companyName, 196, 20, { align: 'right' });
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text(company.companyAddress, 196, 27, { align: 'right' });
+      doc.text(`NIF: ${company.companyNif}`, 196, 33, { align: 'right' });
+
+      // --- CUSTOMER & DATE SECTION ---
+      const sectionY = 50;
+
+      // Left: Customer Info
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text("FATURAR A:", 14, sectionY);
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.text(sale.customerName || 'Consumidor Final', 14, sectionY + 7);
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      let customerY = sectionY + 13;
+      if (sale.customerNif) {
+        doc.text(`NIF: ${sale.customerNif}`, 14, customerY);
+        customerY += 5;
+      }
+      if (sale.customerAddress) {
+        doc.text(sale.customerAddress, 14, customerY);
+        customerY += 5;
+      }
+      if (sale.customerPostalCode) {
+        doc.text(sale.customerPostalCode, 14, customerY);
+      }
+
+      // Right: Date & Payment
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text("DATA:", 196, sectionY, { align: 'right' });
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.text(formatDateTime(sale.date), 196, sectionY + 7, { align: 'right' });
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text("PAGAMENTO:", 196, sectionY + 16, { align: 'right' });
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.text(getPaymentLabel(sale.paymentMethod), 196, sectionY + 23, { align: 'right' });
+
+      // --- ITEMS TABLE ---
       const tableBody = sale.items.map(item => [
         item.productName,
         item.quantity.toString(),
-        `${item.unitPrice.toFixed(2)}€`,
-        `${item.total.toFixed(2)}€`
+        `${item.total.toFixed(2)} €`
       ]);
 
       autoTable(doc, {
-        startY: 75,
-        head: [['Produto', 'Qtd', 'Preço Unit', 'Total']],
+        startY: 90,
+        head: [['Descrição', 'Qtd', 'Total']],
         body: tableBody,
+        theme: 'plain',
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [107, 114, 128],
+          fontStyle: 'bold',
+          fontSize: 10,
+          cellPadding: { top: 4, bottom: 4 }
+        },
+        bodyStyles: {
+          textColor: [31, 41, 55],
+          fontSize: 10,
+          cellPadding: { top: 6, bottom: 6 }
+        },
+        columnStyles: {
+          0: { cellWidth: 'auto' },
+          1: { halign: 'center', cellWidth: 25 },
+          2: { halign: 'right', cellWidth: 35 }
+        },
+        styles: {
+          lineColor: [229, 231, 235],
+          lineWidth: 0.1
+        },
+        didDrawCell: (data: any) => {
+          // Draw bottom border for each row
+          if (data.section === 'body' || data.section === 'head') {
+            doc.setDrawColor(229, 231, 235);
+            doc.line(data.cell.x, data.cell.y + data.cell.height,
+              data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+          }
+        }
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY + 10;
-      doc.setFontSize(12);
+      // --- TOTALS SECTION ---
+      const finalY = (doc as any).lastAutoTable.finalY + 15;
+      const totalsX = 130;
+
+      // Calculate tax breakdown
+      const taxRate = company.taxRate / 100;
+      const subTotal = sale.totalAmount / (1 + taxRate);
+      const taxAmount = sale.totalAmount - subTotal;
+
+      // Subtotal
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text("Subtotal", totalsX, finalY);
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.text(`${subTotal.toFixed(2)} €`, 196, finalY, { align: 'right' });
+
+      // Line
+      doc.setDrawColor(lightGray[0], lightGray[1], lightGray[2]);
+      doc.line(totalsX, finalY + 3, 196, finalY + 3);
+
+      // IVA
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text(`IVA (${company.taxRate}%)`, totalsX, finalY + 12);
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.text(`${taxAmount.toFixed(2)} €`, 196, finalY + 12, { align: 'right' });
+
+      // Line
+      doc.line(totalsX, finalY + 15, 196, finalY + 15);
+
+      // Total
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text(`TOTAL: ${sale.totalAmount.toFixed(2)}€`, 150, finalY, { align: 'right' });
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.text("Total", totalsX, finalY + 26);
+      doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+      doc.text(`${sale.totalAmount.toFixed(2)} €`, 196, finalY + 26, { align: 'right' });
+
+      // --- FOOTER (optional) ---
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(mediumGray[0], mediumGray[1], mediumGray[2]);
+      doc.text("Obrigado pela sua preferência!", 105, 280, { align: 'center' });
 
       const pdfBlob = doc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);

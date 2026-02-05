@@ -105,6 +105,38 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
     </div>
   );
 
+  // Custom Tooltip Component (PowerBI Style)
+  const CustomTooltip = ({ active, payload, label, formatter }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-sm p-4 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 min-w-[200px] z-50">
+          <p className="font-bold text-gray-900 dark:text-white mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+            {label}
+          </p>
+          <div className="space-y-1.5">
+            {payload.map((entry: any, index: number) => (
+              <div key={index} className="flex items-center justify-between gap-4 text-sm">
+                <div className="flex items-center gap-2">
+                  <div
+                    className="w-2.5 h-2.5 rounded-full"
+                    style={{ backgroundColor: entry.color || entry.fill }}
+                  />
+                  <span className="text-gray-600 dark:text-gray-300 font-medium">
+                    {entry.name}:
+                  </span>
+                </div>
+                <span className="font-bold text-gray-900 dark:text-white">
+                  {formatter ? formatter(entry.value) : entry.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -113,13 +145,10 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
         <ChartCard title="Stock por Categoria" icon={BarChart3}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={categoryData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
               <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
               <YAxis axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
-              <Tooltip
-                cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-              />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6', opacity: 0.1 }} />
               <Bar dataKey="Quantidade" radius={[4, 4, 0, 0]}>
                 {categoryData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -148,7 +177,9 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+              <Tooltip
+                content={<CustomTooltip formatter={(val: number) => val.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />}
+              />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -170,7 +201,7 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip contentStyle={{ borderRadius: '8px', border: 'none' }} />
+              <Tooltip content={<CustomTooltip />} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -180,15 +211,14 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
         <ChartCard title="Top 5 Produtos (Valor)" icon={TrendingUp}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart layout="vertical" data={topProductsData}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#374151" opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#374151" opacity={0.1} />
               <XAxis type="number" axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
               <YAxis dataKey="name" type="category" width={100} axisLine={false} tickLine={false} fontSize={12} stroke="#9ca3af" />
               <Tooltip
+                content={<CustomTooltip formatter={(val: number) => val.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })} />}
                 cursor={{ fill: '#f3f4f6', opacity: 0.1 }}
-                contentStyle={{ borderRadius: '8px', border: 'none' }}
-                formatter={(value: number) => `${value.toLocaleString()}€`}
               />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#8b5cf6" barSize={20} />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#8b5cf6" barSize={20} name="Valor Total" />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -199,10 +229,12 @@ export const DashboardCharts: React.FC<DashboardChartsProps> = ({ products }) =>
       <ChartCard title="Tendência Média de Preços (Semestral)" icon={TrendingUp}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={trendData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.3} />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#374151" opacity={0.1} />
             <XAxis dataKey="name" axisLine={false} tickLine={false} stroke="#9ca3af" />
             <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${value}€`} stroke="#9ca3af" />
-            <Tooltip formatter={(value) => [`${value}€`, 'Preço Médio']} contentStyle={{ borderRadius: '8px', border: 'none' }} />
+            <Tooltip
+              content={<CustomTooltip formatter={(val: number) => `${val}€`} />}
+            />
             <Legend />
             <Line type="monotone" dataKey="MediaPreco" name="Preço Médio" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 8 }} />
           </LineChart>

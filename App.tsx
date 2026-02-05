@@ -31,6 +31,8 @@ import { LoginScreen } from './components/LoginScreen';
 import { ToastContainer } from './components/Toast';
 import { AlertsPanel } from './components/AlertsPanel';
 import { PromotionManager } from './components/PromotionManager';
+import { CommandPalette } from './components/CommandPalette';
+import { Sidebar } from './components/Sidebar';
 
 // Importa hooks personalizados
 import { useDebounce } from './hooks/useDebounce';
@@ -413,265 +415,351 @@ const App: React.FC = () => {
 
   // App Principal
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors duration-200">
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 shadow-sm transition-colors duration-200">
-        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="bg-blue-600 p-1.5 md:p-2 rounded-lg">
-                <Package className="w-5 h-5 md:w-6 md:h-6 text-white" />
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 flex overflow-hidden transition-colors duration-200">
+      {/* Sidebar */}
+      <Sidebar
+        currentView={view}
+        onNavigate={(v) => setView(v as any)}
+        visibleTabs={visibleTabs}
+        companyName={settings.companyName}
+        currentUser={currentUser}
+        theme={settings.theme as 'light' | 'dark'}
+        onToggleTheme={toggleTheme}
+        onLogout={handleLogout}
+      />
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Bar */}
+        <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              {visibleTabs.find(t => t.id === view)?.label || 'Dashboard'}
+            </h1>
+            {isLoading && <Loader className="w-4 h-4 text-blue-500 animate-spin" />}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Stats Quick View */}
+            <div className="hidden lg:flex items-center gap-4 bg-gray-50 dark:bg-gray-700/50 px-4 py-2 rounded-lg border border-gray-100 dark:border-gray-600">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
+                  <TrendingUp className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-gray-400 leading-none">Valor Stock</span>
+                  <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
+                    {stats.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                  </span>
+                </div>
               </div>
-              <span className="text-lg md:text-xl font-bold text-gray-900 dark:text-white hidden sm:block">ERP Inventário</span>
-              <span className="text-lg font-bold text-gray-900 dark:text-white sm:hidden">ERP</span>
-              {isLoading && <Loader className="w-4 h-4 text-blue-500 animate-spin ml-2" />}
+              <div className="w-px h-6 bg-gray-200 dark:bg-gray-600"></div>
+              <div className="flex items-center gap-2">
+                <div className={`p-1.5 rounded-md ${stats.lowStockCount > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
+                  <Bell className={`w-3.5 h-3.5 ${stats.lowStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`} />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] uppercase font-bold text-gray-400 leading-none">Alertas</span>
+                  <span className={`text-xs font-bold leading-tight ${stats.lowStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                    {stats.lowStockCount}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Menu Topo */}
-            <div className="flex items-center gap-2 md:gap-3">
-              <div className="hidden md:flex items-center gap-3 bg-gray-50 dark:bg-gray-700/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-600">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-md">
-                    <TrendingUp className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 leading-none">Valor</span>
-                    <span className="text-xs font-bold text-gray-900 dark:text-white leading-tight">
-                      {stats.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-                </div>
+            {/* Command Palette */}
+            <CommandPalette
+              products={products}
+              customers={customers}
+              sales={sales}
+              onNavigate={(v) => setView(v as any)}
+              onSelectProduct={handleOpenEdit}
+            />
+          </div>
+        </header>
 
-                <div className="w-px h-6 bg-gray-200 dark:bg-gray-600"></div>
-
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-md ${stats.lowStockCount > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-blue-100 dark:bg-blue-900/30'}`}>
-                    <Barcode className={`w-3.5 h-3.5 ${stats.lowStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`} />
+        {/* Scrollable Content */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {view === 'dashboard' && (
+            <div className="space-y-6">
+              {/* Welcome Section */}
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 p-6 rounded-2xl shadow-lg text-white">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold">
+                      {new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 19 ? 'Boa tarde' : 'Boa noite'}, {currentUser?.name?.split(' ')[0] || 'Utilizador'}! 👋
+                    </h1>
+                    <p className="text-blue-100 mt-1">
+                      {new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-[10px] uppercase font-bold text-gray-400 leading-none">Alertas</span>
-                    <span className={`text-xs font-bold leading-tight ${stats.lowStockCount > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
-                      {stats.lowStockCount}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <button onClick={toggleTheme} className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
-                {settings.theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 p-1 md:p-1.5 md:pr-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full border border-gray-200 dark:border-gray-600"
-                >
-                  <div className="w-7 h-7 md:w-8 md:h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-blue-700 dark:text-blue-300">
-                    <UserIcon className="w-4 h-4" />
-                  </div>
-                  <span className="text-sm font-medium hidden sm:block">{currentUser.name}</span>
-                </button>
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 border border-gray-200 dark:border-gray-700 z-50">
-                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{currentUser.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{currentUser.role}</p>
+                  <div className="flex gap-4">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[100px]">
+                      <p className="text-2xl font-bold">{sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString()).length}</p>
+                      <p className="text-xs text-blue-100">Vendas Hoje</p>
                     </div>
-                    <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center">
-                      <LogOut className="w-4 h-4 mr-2" /> Sair
-                    </button>
+                    <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[100px]">
+                      <p className="text-2xl font-bold">
+                        {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString())
+                          .reduce((acc, s) => acc + s.totalAmount, 0)
+                          .toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-xs text-blue-100">Receita Hoje</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Value */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Valor em Stock</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                        {stats.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                      </p>
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-green-400 to-green-600 rounded-lg shadow-sm">
+                      <TrendingUp className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Low Stock Alerts */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Alertas Stock</p>
+                      <p className={`text-2xl font-bold mt-1 ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        {stats.lowStockCount}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">{stats.lowStockCount === 0 ? 'Tudo OK!' : 'Produtos baixos'}</p>
+                    </div>
+                    <div className={`p-2.5 rounded-lg shadow-sm ${stats.lowStockCount > 0 ? 'bg-gradient-to-br from-red-400 to-red-600' : 'bg-gradient-to-br from-green-400 to-green-600'}`}>
+                      <Bell className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Products */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Produtos</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{products.length}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{stats.totalItems} unidades</p>
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg shadow-sm">
+                      <Package className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profit Margin */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Margem Média</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                        {products.length > 0
+                          ? ((1 - products.reduce((acc, p) => acc + (p.costPrice || 0), 0) / products.reduce((acc, p) => acc + p.price, 0)) * 100).toFixed(0)
+                          : 0}%
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">Lucro potencial</p>
+                    </div>
+                    <div className="p-2.5 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg shadow-sm">
+                      <BarChart2 className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Stats Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Sales This Month */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
+                    Vendas Este Mês
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {sales.filter(s => {
+                          const saleDate = new Date(s.date);
+                          const now = new Date();
+                          return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+                        }).length}
+                      </p>
+                      <p className="text-xs text-gray-500">Total de Vendas</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {sales.filter(s => {
+                          const saleDate = new Date(s.date);
+                          const now = new Date();
+                          return saleDate.getMonth() === now.getMonth() && saleDate.getFullYear() === now.getFullYear();
+                        }).reduce((acc, s) => acc + s.totalAmount, 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-xs text-gray-500">Receita Total</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pending Shipments */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-orange-500 rounded-full"></span>
+                    Envios Pendentes
+                  </h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-orange-500">
+                        {sales.filter(s => s.deliveryType === 'SHIPPING' && s.status === 'PENDING').length}
+                      </p>
+                      <p className="text-xs text-gray-500">A aguardar envio</p>
+                    </div>
+                    <Truck className="w-10 h-10 text-orange-200 dark:text-orange-800" />
+                  </div>
+                </div>
+
+                {/* Active Promotions */}
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                    <span className="w-1 h-4 bg-purple-500 rounded-full"></span>
+                    Promoções Ativas
+                  </h4>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-2xl font-bold text-purple-500">
+                        {promotions.filter(p => p.isActive && new Date(p.endDate) >= new Date()).length}
+                      </p>
+                      <p className="text-xs text-gray-500">Cupões em vigor</p>
+                    </div>
+                    <Gift className="w-10 h-10 text-purple-200 dark:text-purple-800" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Sales */}
+              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-4 flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <span className="w-1 h-4 bg-green-500 rounded-full"></span>
+                    Últimas Vendas
+                  </span>
+                  <button onClick={() => setView('sales_stats')} className="text-xs text-blue-600 hover:underline">Ver todas</button>
+                </h4>
+                {sales.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">Nenhuma venda registada</p>
+                ) : (
+                  <div className="space-y-2">
+                    {sales.slice(0, 5).map((sale) => (
+                      <div key={sale.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                            <ShoppingCart className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{sale.customerName}</p>
+                            <p className="text-xs text-gray-500">{new Date(sale.date).toLocaleDateString('pt-PT')}</p>
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">
+                          {sale.totalAmount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-          {/* Navegação */}
-          <div className="flex overflow-x-auto space-x-2 md:space-x-4 pb-0 scrollbar-hide">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setView(tab.id as any)}
-                className={`flex items-center px-2 py-2 md:px-3 md:py-3 border-b-2 text-xs md:text-sm font-medium whitespace-nowrap transition-colors ${view === tab.id ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'}`}
-              >
-                <tab.icon className="w-3.5 h-3.5 md:w-4 md:h-4 mr-1.5 md:mr-2" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-6 lg:px-8 py-4 md:py-8">
-        {view === 'dashboard' && (
-          <div className="space-y-6">
-            {/* Welcome Section */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 p-6 rounded-2xl shadow-lg text-white">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-bold">
-                    {new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 19 ? 'Boa tarde' : 'Boa noite'}, {currentUser?.name?.split(' ')[0] || 'Utilizador'}! 👋
-                  </h1>
-                  <p className="text-blue-100 mt-1">
-                    {new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                  </p>
-                </div>
-                <div className="flex gap-4">
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[100px]">
-                    <p className="text-2xl font-bold">{sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString()).length}</p>
-                    <p className="text-xs text-blue-100">Vendas Hoje</p>
-                  </div>
-                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 text-center min-w-[100px]">
-                    <p className="text-2xl font-bold">
-                      {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString())
-                        .reduce((acc, s) => acc + s.totalAmount, 0)
-                        .toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                    </p>
-                    <p className="text-xs text-blue-100">Receita Hoje</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+              <DashboardCharts products={dashboardFilteredProducts} />
 
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Total Value */}
-              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Valor em Stock</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      {stats.totalValue.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
-                    </p>
-                  </div>
-                  <div className="p-2.5 bg-gradient-to-br from-green-400 to-green-600 rounded-lg shadow-sm">
-                    <TrendingUp className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
+              {activeAlerts.length > 0 && (
+                <AlertsPanel alerts={activeAlerts} onDismiss={handleDismissAlert} onDismissAll={handleDismissAllAlerts} />
+              )}
 
-              {/* Low Stock Alerts */}
-              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Alertas Stock</p>
-                    <p className={`text-2xl font-bold mt-1 ${stats.lowStockCount > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                      {stats.lowStockCount}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{stats.lowStockCount === 0 ? 'Tudo OK!' : 'Produtos baixos'}</p>
-                  </div>
-                  <div className={`p-2.5 rounded-lg shadow-sm ${stats.lowStockCount > 0 ? 'bg-gradient-to-br from-red-400 to-red-600' : 'bg-gradient-to-br from-green-400 to-green-600'}`}>
-                    <Bell className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Total Products */}
-              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Produtos</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{products.length}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{stats.totalItems} unidades</p>
-                  </div>
-                  <div className="p-2.5 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg shadow-sm">
-                    <Package className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Profit Margin */}
-              <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Margem Média</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      {products.length > 0
-                        ? ((1 - products.reduce((acc, p) => acc + (p.costPrice || 0), 0) / products.reduce((acc, p) => acc + p.price, 0)) * 100).toFixed(0)
-                        : 0}%
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">Lucro potencial</p>
-                  </div>
-                  <div className="p-2.5 bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg shadow-sm">
-                    <BarChart2 className="w-5 h-5 text-white" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <DashboardCharts products={dashboardFilteredProducts} />
-
-            {activeAlerts.length > 0 && (
-              <AlertsPanel alerts={activeAlerts} onDismiss={handleDismissAlert} onDismissAll={handleDismissAllAlerts} />
-            )}
-
-            {/* Quick Actions - Redesigned */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <span className="w-1.5 h-5 bg-blue-600 rounded-full"></span>
-                Ações Rápidas
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <button
-                  onClick={() => setView('sales')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
-                >
-                  <ShoppingCart className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition-colors" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-blue-600">Nova Venda</span>
-                </button>
-                <button
-                  onClick={handleOpenCreate}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group"
-                >
-                  <Plus className="w-6 h-6 text-gray-400 group-hover:text-green-600 transition-colors" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-green-600">Novo Produto</span>
-                </button>
-                <button
-                  onClick={handleExportInventory}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
-                >
-                  <Download className="w-6 h-6 text-gray-400 group-hover:text-purple-600 transition-colors" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-purple-600">Exportar PDF</span>
-                </button>
-                <button
-                  onClick={() => setView('customers')}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group"
-                >
-                  <Users className="w-6 h-6 text-gray-400 group-hover:text-orange-600 transition-colors" />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-orange-600">Clientes</span>
-                </button>
-                {currentUser?.role === 'ADMIN' && (
+              {/* Quick Actions - Redesigned */}
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <span className="w-1.5 h-5 bg-blue-600 rounded-full"></span>
+                  Ações Rápidas
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                   <button
-                    onClick={handleCreateBackup}
-                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all group"
+                    onClick={() => setView('sales')}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group"
                   >
-                    <Database className="w-6 h-6 text-gray-400 group-hover:text-teal-600 transition-colors" />
-                    <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-teal-600">Backup</span>
+                    <ShoppingCart className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-blue-600">Nova Venda</span>
                   </button>
-                )}
+                  <button
+                    onClick={handleOpenCreate}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group"
+                  >
+                    <Plus className="w-6 h-6 text-gray-400 group-hover:text-green-600 transition-colors" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-green-600">Novo Produto</span>
+                  </button>
+                  <button
+                    onClick={handleExportInventory}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group"
+                  >
+                    <Download className="w-6 h-6 text-gray-400 group-hover:text-purple-600 transition-colors" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-purple-600">Exportar PDF</span>
+                  </button>
+                  <button
+                    onClick={() => setView('customers')}
+                    className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group"
+                  >
+                    <Users className="w-6 h-6 text-gray-400 group-hover:text-orange-600 transition-colors" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-orange-600">Clientes</span>
+                  </button>
+                  {currentUser?.role === 'ADMIN' && (
+                    <button
+                      onClick={handleCreateBackup}
+                      className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-all group"
+                    >
+                      <Database className="w-6 h-6 text-gray-400 group-hover:text-teal-600 transition-colors" />
+                      <span className="text-sm text-gray-600 dark:text-gray-300 group-hover:text-teal-600">Backup</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-        {view === 'sales_stats' && <SalesDashboard sales={sales} users={users} products={products} currency={settings.currency} />}
-        {view === 'list' && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 border-b dark:border-gray-700 flex justify-between">
-              <h2 className="font-bold text-lg dark:text-white">Produtos</h2>
-              {currentUser.role === 'ADMIN' && <button onClick={handleOpenCreate} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><Plus className="inline w-4 h-4 mr-1" />Novo</button>}
+          )}
+          {view === 'sales_stats' && <SalesDashboard sales={sales} users={users} products={products} currency={settings.currency} />}
+          {view === 'list' && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
+              <div className="p-4 border-b dark:border-gray-700 flex justify-between">
+                <h2 className="font-bold text-lg dark:text-white">Produtos</h2>
+                {currentUser.role === 'ADMIN' && <button onClick={handleOpenCreate} className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><Plus className="inline w-4 h-4 mr-1" />Novo</button>}
+              </div>
+              <InventoryTable
+                products={filteredProducts}
+                onEdit={handleOpenEdit}
+                onDelete={handleDelete}
+                userRole={currentUser.role}
+                categories={categories}
+                suppliers={suppliers}
+              />
             </div>
-            <InventoryTable products={filteredProducts} onEdit={handleOpenEdit} onDelete={handleDelete} userRole={currentUser.role} />
-          </div>
-        )}
-        {view === 'sales' && <SalesManager products={products} sales={sales} customers={customers} onNewSale={handleNewSale} settings={settings} />}
-        {view === 'customers' && <CustomerManager customers={customers} onAddCustomer={handleAddCustomer} onEditCustomer={handleEditCustomer} onDeleteCustomer={handleDeleteCustomer} userRole={currentUser.role} />}
-        {view === 'purchases' && currentUser.role === 'ADMIN' && <PurchaseOrderManager products={products} suppliers={suppliers} purchaseOrders={purchaseOrders} onCreateOrder={handleCreatePO} onReceiveOrder={handleReceivePO} />}
-        {view === 'suppliers' && currentUser.role === 'ADMIN' && <SupplierManager suppliers={suppliers} onAddSupplier={handleAddSupplier} onEditSupplier={handleEditSupplier} onDeleteSupplier={handleDeleteSupplier} />}
-        {view === 'users' && currentUser.role === 'ADMIN' && <UserManager users={users} currentUser={currentUser} onAddUser={handleAddUser} onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} />}
-        {view === 'history' && currentUser.role === 'ADMIN' && <HistoryLog history={history} onImport={handleImportHistory} />}
-        {view === 'settings' && currentUser.role === 'ADMIN' && <SettingsManager settings={settings} onSave={setSettings} />}
-        {view === 'promotions' && currentUser.role === 'ADMIN' && <PromotionManager promotions={promotions} onAdd={handleAddPromotion} onEdit={handleEditPromotion} onDelete={handleDeletePromotion} />}
-      </main>
+          )}
+          {view === 'sales' && <SalesManager products={products} sales={sales} customers={customers} promotions={promotions} onNewSale={handleNewSale} settings={settings} />}
+          {view === 'customers' && <CustomerManager customers={customers} onAddCustomer={handleAddCustomer} onEditCustomer={handleEditCustomer} onDeleteCustomer={handleDeleteCustomer} userRole={currentUser.role} />}
+          {view === 'purchases' && currentUser.role === 'ADMIN' && <PurchaseOrderManager products={products} suppliers={suppliers} purchaseOrders={purchaseOrders} onCreateOrder={handleCreatePO} onReceiveOrder={handleReceivePO} />}
+          {view === 'suppliers' && currentUser.role === 'ADMIN' && <SupplierManager suppliers={suppliers} onAddSupplier={handleAddSupplier} onEditSupplier={handleEditSupplier} onDeleteSupplier={handleDeleteSupplier} />}
+          {view === 'users' && currentUser.role === 'ADMIN' && <UserManager users={users} currentUser={currentUser} onAddUser={handleAddUser} onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} />}
+          {view === 'history' && currentUser.role === 'ADMIN' && <HistoryLog history={history} onImport={handleImportHistory} />}
+          {view === 'settings' && currentUser.role === 'ADMIN' && <SettingsManager settings={settings} onSave={setSettings} />}
+          {view === 'promotions' && currentUser.role === 'ADMIN' && <PromotionManager promotions={promotions} onAdd={handleAddPromotion} onEdit={handleEditPromotion} onDelete={handleDeletePromotion} />}
+        </main>
 
-      {isModalOpen && <ProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveProduct} initialData={currentProduct} type={modalType} suppliers={suppliers} />}
-      <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
+        {isModalOpen && <ProductModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveProduct} initialData={currentProduct} type={modalType} suppliers={suppliers} />}
+        <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
+      </div>
     </div>
   );
 };

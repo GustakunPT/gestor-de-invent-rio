@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Tag, Plus, Edit2, Trash2, Calendar, Percent, Gift } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Tag, Plus, Edit2, Trash2, Calendar, Percent, Gift, Zap, Clock, CheckCircle } from 'lucide-react';
 import { Promotion } from '../types';
 import { generateId } from '../validators';
 
@@ -29,6 +29,37 @@ export const PromotionManager: React.FC<PromotionManagerProps> = ({
         minPurchase: 0,
         isActive: true
     });
+
+    // Calculate active promotions
+    const { activePromos, upcomingPromos, expiredPromos } = useMemo(() => {
+        const now = new Date();
+        const active: Promotion[] = [];
+        const upcoming: Promotion[] = [];
+        const expired: Promotion[] = [];
+
+        promotions.forEach(promo => {
+            const start = new Date(promo.startDate);
+            const end = new Date(promo.endDate);
+
+            if (promo.isActive && now >= start && now <= end) {
+                active.push(promo);
+            } else if (now < start) {
+                upcoming.push(promo);
+            } else {
+                expired.push(promo);
+            }
+        });
+
+        return { activePromos: active, upcomingPromos: upcoming, expiredPromos: expired };
+    }, [promotions]);
+
+    const getDaysRemaining = (endDate: string) => {
+        const end = new Date(endDate);
+        const now = new Date();
+        const diffTime = end.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    };
 
     const resetForm = () => {
         setFormData({
@@ -94,6 +125,93 @@ export const PromotionManager: React.FC<PromotionManagerProps> = ({
 
     return (
         <div className="space-y-6">
+            {/* Active Promotions Summary */}
+            {activePromos.length > 0 && (
+                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-2xl shadow-lg text-white">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-white/20 rounded-lg">
+                            <Zap className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold">Promoções Ativas</h2>
+                            <p className="text-purple-100 text-sm">{activePromos.length} promoção{activePromos.length > 1 ? 'ões' : ''} em vigor</p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {activePromos.map(promo => {
+                            const daysRemaining = getDaysRemaining(promo.endDate);
+                            return (
+                                <div key={promo.id} className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                                    <div className="flex items-start justify-between mb-2">
+                                        <h3 className="font-semibold text-white">{promo.name}</h3>
+                                        <span className="text-2xl font-bold">
+                                            {promo.type === 'PERCENTAGE' ? `${promo.value}%` : `${promo.value}€`}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-4 text-sm text-purple-100">
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" />
+                                            <span>{daysRemaining} dia{daysRemaining !== 1 ? 's' : ''} restante{daysRemaining !== 1 ? 's' : ''}</span>
+                                        </div>
+                                    </div>
+
+                                    {promo.couponCode && (
+                                        <div className="mt-3 px-3 py-1.5 bg-white/20 rounded-lg text-center">
+                                            <span className="font-mono font-bold tracking-wider">{promo.couponCode}</span>
+                                        </div>
+                                    )}
+
+                                    {promo.minPurchase && promo.minPurchase > 0 && (
+                                        <p className="text-xs text-purple-200 mt-2">
+                                            Min. compra: {promo.minPurchase.toFixed(2)}€
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Stats Bar */}
+            <div className="grid grid-cols-3 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{activePromos.length}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Ativas</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{upcomingPromos.length}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Agendadas</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                            <Calendar className="w-5 h-5 text-gray-500" />
+                        </div>
+                        <div>
+                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{expiredPromos.length}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Expiradas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Header */}
             <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
@@ -248,8 +366,8 @@ export const PromotionManager: React.FC<PromotionManagerProps> = ({
                             <div
                                 key={promo.id}
                                 className={`bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-2 relative overflow-hidden transition-all ${active
-                                        ? 'border-green-300 dark:border-green-700'
-                                        : 'border-gray-100 dark:border-gray-700 opacity-75'
+                                    ? 'border-green-300 dark:border-green-700'
+                                    : 'border-gray-100 dark:border-gray-700 opacity-75'
                                     }`}
                             >
                                 {active && (

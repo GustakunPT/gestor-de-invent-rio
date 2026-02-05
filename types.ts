@@ -146,15 +146,22 @@ export interface Sale {
   items: SaleItem[];
   totalAmount: number;
   userId: string;                 // Vendido por
-  // Novos campos
+  // Pagamento
   paymentMethod?: PaymentMethod;
   paymentStatus?: PaymentStatus;
   status?: SaleStatus;
   discountAmount?: number;        // Desconto total
   discountReason?: string;        // Motivo desconto
   notes?: string;                 // Observações
-  shippingMethod?: string;        // Método envio
+  // Entrega
+  deliveryType?: 'STORE' | 'SHIPPING';  // Loja ou Envio
+  shippingAddress?: string;       // Morada de envio (se diferente)
+  shippingPostalCode?: string;    // Código postal de envio
+  shippingCity?: string;          // Cidade de envio
+  shippingMethod?: string;        // Método envio (CTT, DPD, etc)
+  shippingCost?: number;          // Custo de envio
   trackingNumber?: string;        // Nº rastreio
+  // Cálculos
   subtotal?: number;              // Antes de IVA
   taxAmount?: number;             // Valor IVA
   profit?: number;                // Lucro calculado
